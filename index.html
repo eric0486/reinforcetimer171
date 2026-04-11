@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #timer { font-size: 48px; }
+    </style>
+</head>
+<body>
+    <h1>Countdown Timer</h1>
+    <div id="timer">00:00:00</div>
+    <script>
+        const countdownDuration = 60 * 60; // 1 hour
+        let remainingTime = countdownDuration;
+
+        function updateTimer() {
+            const hours = String(Math.floor(remainingTime / 3600)).padStart(2, '0');
+            const minutes = String(Math.floor((remainingTime % 3600) / 60)).padStart(2, '0');
+            const seconds = String(remainingTime % 60).padStart(2, '0');
+            document.getElementById('timer').textContent = `${hours}:${minutes}:${seconds}`;
+            if (remainingTime > 0) {
+                remainingTime--;
+                setTimeout(updateTimer, 1000);
+            }
+        }
+
+        updateTimer();
+    </script>
+</body>
+</html>
