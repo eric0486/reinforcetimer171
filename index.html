@@ -1,33 +1,989 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Countdown Timer</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #timer { font-size: 48px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discord Countdown Timer</title>
+  <style>
+    /* ── Discord dark palette ─────────────────────────────────── */
+    :root {
+      --bg:     #2c2f33;
+      --dark:   #23272a;
+      --fg:     #ffffff;
+      --accent: #7289da;
+      --green:  #43b581;
+      --yellow: #faa61a;
+      --red:    #f04747;
+      --gray:   #72767d;
+      --card:   #2f3136;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 0 0 24px;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      background: var(--dark);
+      text-align: center;
+      padding: 14px 0;
+    }
+    header h1 {
+      font-size: 1.45rem;
+      color: var(--accent);
+      letter-spacing: .5px;
+    }
+
+    /* ── Clock ───────────────────────────────────────────────── */
+    #clock-wrap {
+      text-align: center;
+      padding: 28px 0 8px;
+    }
+    #clock {
+      font-size: 5.5rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      line-height: 1;
+      transition: color .3s;
+    }
+    #clock.urgent { color: var(--red); }
+    #status {
+      margin-top: 8px;
+      font-size: .95rem;
+      color: var(--gray);
+      min-height: 1.4em;
+    }
+
+    /* ── Settings card ───────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 18px 24px;
+      width: min(520px, 96vw);
+      margin-top: 16px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 8px;
+    }
+    .row:last-child { margin-bottom: 0; }
+
+    label.row-label {
+      font-size: .82rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    /* Duration spinners */
+    .dur-group { display: flex; align-items: center; gap: 4px; }
+    .dur-group input[type=number] {
+      width: 58px;
+      background: var(--dark);
+      border: 1px solid #444;
+      border-radius: 4px;
+      color: var(--fg);
+      font-size: 16px;
+      text-align: center;
+      padding: 4px 2px;
+    }
+    .dur-group span { color: var(--fg); font-size: 1.1rem; }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: var(--dark);
+      border: 1px solid #4b5563;
+      color: var(--fg);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); }
+
+    /* Volume slider */
+    .vol-group { display: flex; align-items: center; gap: 10px; }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    #vol-pct { min-width: 40px; font-size: .9rem; }
+
+    /* Radio groups */
+    .radio-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--dark);
+      border: 1px solid #444;
+      border-radius: 5px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: .85rem;
+      transition: border-color .15s, background .15s;
+    }
+    .radio-group input[type=radio] { accent-color: var(--accent); }
+    .radio-group label:has(input:checked) {
+      border-color: var(--accent);
+      background: #3c4175;
+    }
+
+    /* Voice selector */
+    select {
+      background: var(--dark);
+      color: var(--fg);
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: .9rem;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    button {
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 700;
+      padding: 10px 26px;
+      cursor: pointer;
+      transition: filter .15s, transform .08s;
+      letter-spacing: .4px;
+    }
+    button:active { transform: scale(.97); }
+    button:hover:not(:disabled) { filter: brightness(1.12); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    #btn-start  { background: var(--green); }
+    #btn-test   { background: #ffffff; color: #111827; border: 2px solid #111827; }
+    #btn-pause  { background: var(--yellow); }
+    #btn-stop   { background: var(--red); }
+
+    /* ── Screen flash ──────────────────────────────────────────── */
+    @keyframes screenFlash {
+      0%, 49% { background: #6b0000; }
+      50%, 100% { background: var(--bg); }
+    }
+    body.flashing { animation: screenFlash 0.5s steps(1) infinite; }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      width: 100%;
+      background: var(--dark);
+      text-align: center;
+      font-size: .75rem;
+      color: var(--gray);
+      padding: 10px 16px;
+      margin-top: auto;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 700px) {
+      #clock { font-size: 3.3rem; letter-spacing: 1px; }
+      .card { width: min(96vw, 640px); padding: 14px; }
+      .row { grid-template-columns: 1fr; gap: 6px; margin-bottom: 12px; }
+      label.row-label { font-size: .78rem; }
+      .dur-group input[type=number] { width: 72px; padding: 7px 3px; }
+      input[type=range] { min-height: 32px; }
+      button { padding: 11px 18px; font-size: .9rem; }
+      .btn-row { flex-wrap: wrap; gap: 8px; }
+      .btn-row button { min-width: 120px; }
+    }
+  </style>
 </head>
 <body>
-    <h1>Countdown Timer</h1>
-    <div id="timer">00:00:00</div>
-    <script>
-        const countdownDuration = 60 * 60; // 1 hour
-        let remainingTime = countdownDuration;
 
-        function updateTimer() {
-            const hours = String(Math.floor(remainingTime / 3600)).padStart(2, '0');
-            const minutes = String(Math.floor((remainingTime % 3600) / 60)).padStart(2, '0');
-            const seconds = String(remainingTime % 60).padStart(2, '0');
-            document.getElementById('timer').textContent = `${hours}:${minutes}:${seconds}`;
-            if (remainingTime > 0) {
-                remainingTime--;
-                setTimeout(updateTimer, 1000);
-            }
-        }
+<header>
+  <h1 id="title">Discord Countdown Timer</h1>
+</header>
 
-        updateTimer();
-    </script>
+<div id="clock-wrap">
+  <div id="clock">00:00</div>
+  <div id="status">Ready</div>
+</div>
+
+<div class="card">
+
+  <!-- Language -->
+  <div class="row">
+    <label class="row-label" id="label-language">Language</label>
+    <div class="radio-group" id="lang-group">
+      <label><input type="radio" name="lang" value="en" checked /> <span id="lang-opt-en">English</span></label>
+      <label><input type="radio" name="lang" value="zh" /> <span id="lang-opt-zh">中文</span></label>
+    </div>
+  </div>
+
+  <!-- Duration -->
+  <div class="row">
+    <label class="row-label" id="label-duration">Duration</label>
+    <div class="dur-group">
+      <input type="number" id="dur-min" min="0" max="99" value="1" />
+      <span id="unit-min">m</span>
+      <input type="number" id="dur-sec" min="0" max="59" value="0" />
+      <span id="unit-sec">s</span>
+    </div>
+  </div>
+
+  <!-- Quick duration presets -->
+  <div class="row">
+    <label class="row-label" id="label-presets">Quick set</label>
+    <div class="chip-group">
+      <button type="button" class="chip" data-preset="30">30s</button>
+      <button type="button" class="chip" data-preset="60">1m</button>
+      <button type="button" class="chip" data-preset="300">5m</button>
+      <button type="button" class="chip" data-preset="600">10m</button>
+    </div>
+  </div>
+
+  <!-- Volume -->
+  <div class="row">
+    <label class="row-label" id="label-volume">Volume</label>
+    <div class="vol-group">
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" />
+      <span id="vol-pct">80%</span>
+    </div>
+  </div>
+
+  <!-- Rate -->
+  <div class="row">
+    <label class="row-label" id="label-rate">Speech Rate</label>
+    <div class="vol-group">
+      <input type="range" id="rate" min="0.5" max="2" step="0.05" value="1" />
+      <span id="rate-val">1.0×</span>
+    </div>
+  </div>
+
+  <!-- Announce interval -->
+  <div class="row">
+    <label class="row-label" id="label-announce">Announce every</label>
+    <div class="radio-group" id="interval-group">
+      <label><input type="radio" name="interval" value="1" checked /> <span id="interval-1">1 s</span></label>
+      <label><input type="radio" name="interval" value="5" />          <span id="interval-5">5 s</span></label>
+      <label><input type="radio" name="interval" value="10" />        <span id="interval-10">10 s</span></label>
+      <label><input type="radio" name="interval" value="30" />        <span id="interval-30">30 s</span></label>
+    </div>
+  </div>
+
+  <!-- Final-N countdown -->
+  <div class="row">
+    <label class="row-label" id="label-final">Always count last</label>
+    <div class="radio-group" id="final-group">
+      <label><input type="radio" name="final" value="5"  />          <span id="final-5">5 s</span></label>
+      <label><input type="radio" name="final" value="10" checked /> <span id="final-10">10 s</span></label>
+      <label><input type="radio" name="final" value="30" />         <span id="final-30">30 s</span></label>
+      <label><input type="radio" name="final" value="60" />         <span id="final-60">60 s</span></label>
+    </div>
+  </div>
+
+  <!-- Flash threshold -->
+  <div class="row">
+    <label class="row-label" id="label-flash">Flash screen at last</label>
+    <div class="vol-group">
+      <input type="range" id="flash-slider" min="0" max="90" step="1" value="0" />
+      <input type="number" id="flash-num" min="0" max="90" value="0"
+             style="width:54px;background:var(--dark);border:1px solid #444;
+                    border-radius:4px;color:var(--fg);font-size:1rem;
+                    text-align:center;padding:4px 2px;" />
+      <span id="flash-help" style="font-size:.9rem;color:var(--gray)">s &nbsp;(0 = off)</span>
+    </div>
+  </div>
+
+  <!-- Voice -->
+  <div class="row">
+    <label class="row-label" id="label-voice">Voice</label>
+    <div style="display:flex;flex-direction:column;gap:5px;width:100%">
+      <select id="tts-engine">
+        <option value="cloud" selected id="engine-cloud">Google TTS Voice (Cloud)</option>
+        <option value="local" id="engine-local">Local Microsoft/System Voice</option>
+      </select>
+      <select id="voice-select" style="display:none">
+        <option value="" id="voice-loading">Loading local voices...</option>
+      </select>
+      <span id="tts-note" style="font-size:.75rem;color:var(--gray)">Cloud mode: Google TTS (single voice)</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="btn-row">
+  <button id="btn-start">START</button>
+  <button id="btn-test">TEST VOICE</button>
+  <button id="btn-pause" disabled>PAUSE</button>
+  <button id="btn-stop"  disabled>STOP</button>
+</div>
+
+<footer id="footer-text">
+  <strong>Use in Discord:</strong>
+  Set Windows playback device to <em>CABLE Input (VB-Audio Virtual Cable)</em>,
+  then select <em>CABLE Output</em> as your Discord mic input.<br/>
+  Get VB-Cable free at <a href="https://vb-audio.com/Cable/" target="_blank">vb-audio.com/Cable</a>
+</footer>
+
+<script>
+// ── Number → spoken words ──────────────────────────────────────────────────
+const ONES = ['', 'one','two','three','four','five','six','seven','eight',
+              'nine','ten','eleven','twelve','thirteen','fourteen','fifteen',
+              'sixteen','seventeen','eighteen','nineteen'];
+const TENS = ['','','twenty','thirty','forty','fifty',
+              'sixty','seventy','eighty','ninety'];
+const ZH_DIGITS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+const I18N = {
+  en: {
+    pageTitle: 'Discord Countdown Timer',
+    statusReady: 'Ready',
+    statusRunning: 'Running…',
+    statusPaused: 'Paused',
+    statusStopped: 'Stopped',
+    statusDone: 'Done! ✅',
+    statusAudioBlocked: 'Audio blocked by browser. Allow autoplay for this file/tab.',
+    statusAudioBlockedFirefox: 'Audio blocked by Firefox autoplay setting. Allow autoplay for this page.',
+    statusTestingVoice: 'Testing voice…',
+    statusCloudIssuePrefix: 'Cloud issue',
+    statusCloudIssueSuffix: 'used browser fallback',
+    statusVoiceComplete: 'Voice test complete',
+    statusVoiceCompleteVia: 'Voice test complete via',
+    alertDurationInvalid: 'Set a duration greater than 0.',
+    labelDuration: 'Duration',
+    labelPresets: 'Quick set',
+    labelVolume: 'Volume',
+    labelRate: 'Speech Rate',
+    labelAnnounce: 'Announce every',
+    labelLanguage: 'Language',
+    labelFinal: 'Always count last',
+    labelFlash: 'Flash screen at last',
+    labelVoice: 'Voice',
+    unitMinute: 'm',
+    unitSecond: 's',
+    interval1: '1 s',
+    interval5: '5 s',
+    interval10: '10 s',
+    interval30: '30 s',
+    final5: '5 s',
+    final10: '10 s',
+    final30: '30 s',
+    final60: '60 s',
+    flashHelp: 's  (0 = off)',
+    langOptEn: 'English',
+    langOptZh: '中文',
+    engineCloud: 'Google TTS Voice (Cloud)',
+    engineLocal: 'Local Microsoft/System Voice',
+    voiceLoading: 'Loading local voices...',
+    voiceMissing: 'No local voices found',
+    btnStart: 'START',
+    btnTest: 'TEST VOICE',
+    btnPause: 'PAUSE',
+    btnResume: 'RESUME',
+    btnStop: 'STOP',
+    footerHtml: '<strong>Use in Discord:</strong> Set Windows playback device to <em>CABLE Input (VB-Audio Virtual Cable)</em>, then select <em>CABLE Output</em> as your Discord mic input.<br/>Get VB-Cable free at <a href="https://vb-audio.com/Cable/" target="_blank">vb-audio.com/Cable</a>',
+    ttsLocal: 'Local mode: use installed English voices',
+    ttsCloud: 'Cloud mode: Google TTS (English, internet required)'
+  },
+  zh: {
+    pageTitle: 'Discord 倒计时器',
+    statusReady: '准备就绪',
+    statusRunning: '运行中…',
+    statusPaused: '已暂停',
+    statusStopped: '已停止',
+    statusDone: '完成！✅',
+    statusAudioBlocked: '浏览器阻止了音频，请允许此页面自动播放。',
+    statusAudioBlockedFirefox: 'Firefox 阻止了音频自动播放，请允许此页面播放音频。',
+    statusTestingVoice: '正在测试语音…',
+    statusCloudIssuePrefix: '云语音异常',
+    statusCloudIssueSuffix: '已改用浏览器本地语音',
+    statusVoiceComplete: '语音测试完成',
+    statusVoiceCompleteVia: '语音测试完成，服务',
+    alertDurationInvalid: '请设置大于 0 的倒计时。',
+    labelDuration: '时长',
+    labelPresets: '快速设置',
+    labelVolume: '音量',
+    labelRate: '语速',
+    labelAnnounce: '播报间隔',
+    labelLanguage: '界面语言',
+    labelFinal: '最后阶段逐秒播报',
+    labelFlash: '最后阶段闪屏',
+    labelVoice: '语音',
+    unitMinute: '分',
+    unitSecond: '秒',
+    interval1: '1 秒',
+    interval5: '5 秒',
+    interval10: '10 秒',
+    interval30: '30 秒',
+    final5: '5 秒',
+    final10: '10 秒',
+    final30: '30 秒',
+    final60: '60 秒',
+    flashHelp: '秒  (0 = 关闭)',
+    langOptEn: 'English',
+    langOptZh: '中文',
+    engineCloud: 'Google TTS 云语音',
+    engineLocal: '本地 Microsoft/系统语音',
+    voiceLoading: '正在加载本地语音...',
+    voiceMissing: '未找到本地语音',
+    btnStart: '开始',
+    btnTest: '测试语音',
+    btnPause: '暂停',
+    btnResume: '继续',
+    btnStop: '停止',
+    footerHtml: '<strong>在 Discord 中使用：</strong> 先把 Windows 播放设备设为 <em>CABLE Input (VB-Audio Virtual Cable)</em>，再把 Discord 麦克风输入设为 <em>CABLE Output</em>。<br/>VB-Cable 下载地址：<a href="https://vb-audio.com/Cable/" target="_blank">vb-audio.com/Cable</a>',
+    ttsLocal: '本地模式：使用已安装的中文语音',
+    ttsCloud: '云模式：Google TTS（中文，需要联网）'
+  }
+};
+
+function getSpokenLang() {
+  const selected = document.querySelector('input[name=lang]:checked');
+  return selected ? selected.value : 'en';
+}
+
+function tr(key) {
+  const lang = getSpokenLang();
+  return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+}
+
+function secsToWords(n) {
+  if (n === 0) return 'zero';
+  if (n < 20)  return ONES[n];
+  if (n < 100) {
+    const t = Math.floor(n / 10), o = n % 10;
+    return TENS[t] + (o ? ' ' + ONES[o] : '');
+  }
+  if (n < 1000) {
+    const h = Math.floor(n / 100), r = n % 100;
+    return ONES[h] + ' hundred' + (r ? ' ' + secsToWords(r) : '');
+  }
+  const th = Math.floor(n / 1000), r = n % 1000;
+  return secsToWords(th) + ' thousand' + (r ? ' ' + secsToWords(r) : '');
+}
+
+function secsToWordsZh(n) {
+  if (n === 0) return ZH_DIGITS[0];
+  if (n < 10) return ZH_DIGITS[n];
+  if (n < 20) return '十' + (n % 10 ? ZH_DIGITS[n % 10] : '');
+  if (n < 100) {
+    const t = Math.floor(n / 10), o = n % 10;
+    return ZH_DIGITS[t] + '十' + (o ? ZH_DIGITS[o] : '');
+  }
+  if (n < 1000) {
+    const h = Math.floor(n / 100), r = n % 100;
+    if (r === 0) return ZH_DIGITS[h] + '百';
+    if (r < 10) return ZH_DIGITS[h] + '百零' + ZH_DIGITS[r];
+    return ZH_DIGITS[h] + '百' + secsToWordsZh(r);
+  }
+  const th = Math.floor(n / 1000), r = n % 1000;
+  if (r === 0) return ZH_DIGITS[th] + '千';
+  if (r < 100) return ZH_DIGITS[th] + '千零' + secsToWordsZh(r);
+  return ZH_DIGITS[th] + '千' + secsToWordsZh(r);
+}
+
+function speechTextForCount(n) {
+  return getSpokenLang() === 'zh' ? secsToWordsZh(n) : secsToWords(n);
+}
+
+function completionSpeechText() {
+  return getSpokenLang() === 'zh' ? '时间到！' : "Time's up!";
+}
+
+// ── TTS (Google cloud + local Microsoft/system) ───────────────────────────
+const audioCache = new Map();
+let currentAudio = null;
+let countdownToken = 0;
+let audioUnlocked = false;
+let browserVoiceReady = false;
+let lastTtsError = '';
+let lastCloudProvider = '';
+
+const browserSynth = window.speechSynthesis;
+
+function initBrowserVoices() {
+  browserVoiceReady = (browserSynth.getVoices() || []).length > 0;
+}
+browserSynth.onvoiceschanged = initBrowserVoices;
+initBrowserVoices();
+
+function populateLocalVoices() {
+  const sel = document.getElementById('voice-select');
+  const voices = browserSynth.getVoices() || [];
+  const spokenLang = getSpokenLang();
+  const langMatcher = spokenLang === 'zh' ? /^(zh|cmn|yue)/i : /^en/i;
+  const languageVoices = voices.filter(v => langMatcher.test(v.lang || ''));
+  const preferred = spokenLang === 'zh'
+    ? languageVoices.filter(v => /microsoft|xiaoxiao|yunxi|yaoyao|hanhan|huihui/i.test(v.name))
+    : languageVoices.filter(v => /microsoft|zira|david|aria|jenny|guy/i.test(v.name));
+  const list = preferred.length ? preferred : (languageVoices.length ? languageVoices : voices);
+
+  sel.innerHTML = '';
+  list.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = `${v.name} (${v.lang})`;
+    sel.appendChild(opt);
+  });
+
+  if (!list.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = tr('voiceMissing');
+    sel.appendChild(opt);
+  }
+
+  sel._voiceList = list;
+}
+browserSynth.onvoiceschanged = () => {
+  initBrowserVoices();
+  populateLocalVoices();
+};
+populateLocalVoices();
+
+async function unlockAudio() {
+  if (audioUnlocked) return true;
+  try {
+    // User-gesture unlock for stricter autoplay policies (Firefox).
+    const silent = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAACJWAAACABAAZGF0YQAAAAA=');
+    silent.volume = 0;
+    await silent.play();
+    silent.pause();
+    audioUnlocked = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function googleTtsUrl(text) {
+  const tl = getSpokenLang() === 'zh' ? 'zh-CN' : 'en-US';
+  return 'https://translate.google.com/translate_tts'
+    + '?ie=UTF-8'
+    + '&tl=' + encodeURIComponent(tl)
+    + '&client=tw-ob'
+    + '&q=' + encodeURIComponent(text);
+}
+
+function localUrl(text) {
+  const voice = document.getElementById('voice-select').value;
+  return 'http://127.0.0.1:8765/tts'
+    + '?voice=' + encodeURIComponent(voice)
+    + '&text='  + encodeURIComponent(text);
+}
+
+function cacheKey(text) {
+  return document.getElementById('tts-engine').value + '::'
+    + getSpokenLang() + '::'
+    + document.getElementById('voice-select').value + '::' + text;
+}
+
+async function buildAudio(text) {
+  const engine = document.getElementById('tts-engine').value;
+  if (engine === 'cloud') {
+    const a = new Audio(googleTtsUrl(text));
+    lastCloudProvider = 'Google TTS';
+    return a;
+  }
+  if (engine === 'local') throw new Error('local mode uses speech synthesis');
+  throw new Error('unknown tts engine');
+}
+
+function loadClip(text) {
+  const key = cacheKey(text);
+  if (audioCache.has(key)) return Promise.resolve(audioCache.get(key));
+  return buildAudio(text).then(a => {
+    audioCache.set(key, a);
+    lastTtsError = '';
+    return a;
+  }).catch(err => {
+    lastTtsError = String(err && err.message ? err.message : err || 'unknown tts error');
+    return null;
+  });
+}
+
+function primeUpcoming(count, interval, final) {
+  const upcoming = [];
+  for (let i = count - 1; i >= Math.max(1, count - 8); i--) {
+    if (i <= final || i % interval === 0) upcoming.push(speechTextForCount(i));
+  }
+  Promise.all(upcoming.map(loadClip)).catch(() => {});
+}
+
+function speak(text) {
+  return new Promise(resolve => {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const volume = parseFloat(document.getElementById('volume').value);
+    const rate   = parseFloat(document.getElementById('rate').value);
+    const key = cacheKey(text);
+    const fallbackSpeak = () => {
+      try {
+        const utt = new SpeechSynthesisUtterance(text);
+        const spokenLang = getSpokenLang();
+        const targetLang = spokenLang === 'zh' ? 'zh-CN' : 'en-US';
+        const sel = document.getElementById('voice-select');
+        const list = sel._voiceList || [];
+        const idx = parseInt(sel.value, 10);
+        const voices = browserSynth.getVoices() || [];
+        const langMatcher = spokenLang === 'zh' ? /^(zh|cmn|yue)/i : /^en/i;
+        const pick = (Number.isInteger(idx) && idx >= 0 && idx < list.length)
+          ? list[idx]
+          : (voices.find(v => langMatcher.test(v.lang || '')) || voices[0]);
+        if (pick) utt.voice = pick;
+        utt.lang = targetLang;
+        utt.volume = volume;
+        utt.rate = rate;
+        utt.onend = () => resolve();
+        utt.onerror = () => resolve();
+        browserSynth.cancel();
+        browserSynth.speak(utt);
+      } catch {
+        resolve();
+      }
+    };
+
+    if (document.getElementById('tts-engine').value === 'local') {
+      fallbackSpeak();
+      return;
+    }
+
+    const use = a => {
+      a.volume       = volume;
+      a.playbackRate = rate;
+      a.currentTime  = 0;
+      currentAudio   = a;
+      a.onended = () => { currentAudio = null; resolve(); };
+      a.onerror = () => { currentAudio = null; fallbackSpeak(); };
+      a.play().catch(() => {
+        currentAudio = null;
+        fallbackSpeak();
+      });
+    };
+
+    if (audioCache.has(key)) {
+      use(audioCache.get(key));
+      return;
+    }
+    loadClip(text).then(a => {
+      if (!a) return fallbackSpeak();
+      use(a);
+    }).catch(() => fallbackSpeak());
+  });
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+const clockEl  = document.getElementById('clock');
+const statusEl = document.getElementById('status');
+const btnStart = document.getElementById('btn-start');
+const btnTest  = document.getElementById('btn-test');
+const btnPause = document.getElementById('btn-pause');
+const btnStop  = document.getElementById('btn-stop');
+
+document.getElementById('volume').addEventListener('input', e => {
+  document.getElementById('vol-pct').textContent =
+    Math.round(e.target.value * 100) + '%';
+  if (currentAudio) currentAudio.volume = parseFloat(e.target.value);
+});
+document.getElementById('rate').addEventListener('input', e => {
+  document.getElementById('rate-val').textContent =
+    parseFloat(e.target.value).toFixed(2) + '×';
+});
+
+// Keep flash slider and number input in sync
+const flashSlider = document.getElementById('flash-slider');
+const flashNum    = document.getElementById('flash-num');
+flashSlider.addEventListener('input', () => { flashNum.value = flashSlider.value; });
+flashNum.addEventListener('input', () => {
+  const v = Math.min(90, Math.max(0, parseInt(flashNum.value, 10) || 0));
+  flashSlider.value = v;
+});
+
+function formatClock(s) {
+  const m = Math.floor(s / 60), r = s % 60;
+  return String(m).padStart(2,'0') + ':' + String(r).padStart(2,'0');
+}
+
+function setStatus(s) { statusEl.textContent = s; }
+
+// ── Countdown state ────────────────────────────────────────────────────────
+let running   = false;
+let paused    = false;
+let remaining = 0;
+let pauseResolve = null;
+
+let currentStatusKey = 'statusReady';
+function setStatusKey(key) {
+  currentStatusKey = key;
+  setStatus(tr(key));
+}
+
+function applyUiLanguage() {
+  const lang = getSpokenLang();
+  document.documentElement.lang = lang === 'zh' ? 'zh' : 'en';
+  document.title = tr('pageTitle');
+  document.getElementById('title').textContent = tr('pageTitle');
+  document.getElementById('label-duration').textContent = tr('labelDuration');
+  document.getElementById('label-presets').textContent = tr('labelPresets');
+  document.getElementById('label-volume').textContent = tr('labelVolume');
+  document.getElementById('label-rate').textContent = tr('labelRate');
+  document.getElementById('label-announce').textContent = tr('labelAnnounce');
+  document.getElementById('label-language').textContent = tr('labelLanguage');
+  document.getElementById('label-final').textContent = tr('labelFinal');
+  document.getElementById('label-flash').textContent = tr('labelFlash');
+  document.getElementById('label-voice').textContent = tr('labelVoice');
+  document.getElementById('unit-min').textContent = tr('unitMinute');
+  document.getElementById('unit-sec').textContent = tr('unitSecond');
+  document.getElementById('interval-1').textContent = tr('interval1');
+  document.getElementById('interval-5').textContent = tr('interval5');
+  document.getElementById('interval-10').textContent = tr('interval10');
+  document.getElementById('interval-30').textContent = tr('interval30');
+  document.getElementById('final-5').textContent = tr('final5');
+  document.getElementById('final-10').textContent = tr('final10');
+  document.getElementById('final-30').textContent = tr('final30');
+  document.getElementById('final-60').textContent = tr('final60');
+  document.getElementById('flash-help').textContent = tr('flashHelp');
+  document.getElementById('lang-opt-en').textContent = tr('langOptEn');
+  document.getElementById('lang-opt-zh').textContent = tr('langOptZh');
+  document.getElementById('engine-cloud').textContent = tr('engineCloud');
+  document.getElementById('engine-local').textContent = tr('engineLocal');
+  document.getElementById('btn-start').textContent = tr('btnStart');
+  document.getElementById('btn-test').textContent = tr('btnTest');
+  document.getElementById('btn-stop').textContent = tr('btnStop');
+  document.getElementById('btn-pause').textContent = paused ? tr('btnResume') : tr('btnPause');
+  document.getElementById('footer-text').innerHTML = tr('footerHtml');
+  if (currentStatusKey) {
+    setStatus(tr(currentStatusKey));
+  }
+  updateTtsNote();
+}
+
+function getDuration() {
+  const minEl = document.getElementById('dur-min');
+  const secEl = document.getElementById('dur-sec');
+  const mRaw = parseInt(minEl.value, 10);
+  const sRaw = parseInt(secEl.value, 10);
+  const m = Number.isFinite(mRaw) ? Math.max(0, mRaw) : 0;
+  const s = Number.isFinite(sRaw) ? Math.max(0, sRaw) : 0;
+  const total = m * 60 + s;
+  return Math.min(359999, Math.max(0, total));
+}
+
+function normalizeDurationInputs() {
+  const total = getDuration();
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  document.getElementById('dur-min').value = String(m);
+  document.getElementById('dur-sec').value = String(s);
+}
+
+function setDurationFromSeconds(totalSeconds) {
+  const safe = Math.min(359999, Math.max(0, parseInt(totalSeconds, 10) || 0));
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  document.getElementById('dur-min').value = String(m);
+  document.getElementById('dur-sec').value = String(s);
+}
+function getInterval() {
+  return parseInt(document.querySelector('input[name=interval]:checked').value, 10);
+}
+function getFinal() {
+  return parseInt(document.querySelector('input[name=final]:checked').value, 10);
+}
+function getFlashAt() {
+  return Math.min(90, Math.max(0, parseInt(document.getElementById('flash-num').value, 10) || 0));
+}
+function startFlash() { document.body.classList.add('flashing'); }
+function stopFlash()  { document.body.classList.remove('flashing'); }
+
+function updateTtsNote() {
+  const mode = document.getElementById('tts-engine').value;
+  const lang = getSpokenLang();
+  const sel = document.getElementById('voice-select');
+  const isLocal = mode === 'local';
+  sel.style.display = isLocal ? 'block' : 'none';
+  document.getElementById('tts-note').textContent = isLocal
+    ? tr('ttsLocal')
+    : tr('ttsCloud');
+  audioCache.clear();
+}
+document.getElementById('tts-engine').addEventListener('change', updateTtsNote);
+document.getElementById('voice-select').addEventListener('change', () => audioCache.clear());
+document.getElementById('dur-min').addEventListener('blur', normalizeDurationInputs);
+document.getElementById('dur-sec').addEventListener('blur', normalizeDurationInputs);
+document.getElementById('dur-min').addEventListener('change', normalizeDurationInputs);
+document.getElementById('dur-sec').addEventListener('change', normalizeDurationInputs);
+document.querySelectorAll('[data-preset]').forEach(el => {
+  el.addEventListener('click', () => {
+    setDurationFromSeconds(el.getAttribute('data-preset'));
+  });
+});
+document.querySelectorAll('input[name=lang]').forEach(el => {
+  el.addEventListener('change', () => {
+    populateLocalVoices();
+    applyUiLanguage();
+  });
+});
+normalizeDurationInputs();
+applyUiLanguage();
+
+// ── Countdown engine ───────────────────────────────────────────────────────
+async function countdown() {
+  const token = countdownToken;
+  const total    = remaining;
+  const interval = getInterval();
+  const final    = getFinal();
+
+  for (let count = total; count > 0; count--) {
+    if (!running) return;
+
+    // Pause gate
+    if (paused) {
+      await new Promise(res => { pauseResolve = res; });
+      pauseResolve = null;
+    }
+    if (!running) return;
+
+    // Update clock
+    remaining = count;
+    clockEl.textContent = formatClock(count);
+    clockEl.classList.toggle('urgent', count <= 10);
+
+    // Flash screen?
+    const flashAt = getFlashAt();
+    if (flashAt > 0 && count <= flashAt) startFlash();
+
+    // Speak?
+    if (count <= final || count % interval === 0) {
+      primeUpcoming(count, interval, final);
+      const t0 = performance.now();
+      await speak(speechTextForCount(count));
+      if (token !== countdownToken) return;
+      const spoke = performance.now() - t0;
+      // Sleep the remainder of this second
+      const wait = Math.max(0, 1000 - spoke);
+      await new Promise(res => setTimeout(res, wait));
+    } else {
+      await new Promise(res => setTimeout(res, 1000));
+    }
+  }
+
+  if (running) {
+    clockEl.textContent = '00:00';
+    clockEl.classList.remove('urgent');
+    stopFlash();
+    await speak(completionSpeechText());
+    setStatusKey('statusDone');
+    resetButtons();
+    running = false;
+  }
+}
+
+// ── Button handlers ────────────────────────────────────────────────────────
+btnStart.addEventListener('click', async () => {
+  const dur = getDuration();
+  if (dur <= 0) { alert(tr('alertDurationInvalid')); return; }
+  countdownToken += 1;
+
+  const unlocked = await unlockAudio();
+  if (!unlocked) {
+    currentStatusKey = '';
+    setStatus(tr('statusAudioBlocked'));
+  }
+
+  // Start immediately; prefetch in background
+  btnStart.disabled = true;
+  btnPause.disabled = false;
+  btnStop .disabled = true;
+  clockEl.textContent = formatClock(dur);
+  clockEl.classList.remove('urgent');
+  audioCache.clear();
+
+  running   = true;
+  paused    = false;
+  remaining = dur;
+  btnStop .disabled = false;
+  setStatusKey('statusRunning');
+  loadClip(speechTextForCount(dur)).catch(() => {});
+  loadClip(completionSpeechText()).catch(() => {});
+  countdown();
+});
+
+btnTest.addEventListener('click', async () => {
+  const unlocked = await unlockAudio();
+  if (!unlocked) {
+    currentStatusKey = '';
+    setStatus(tr('statusAudioBlockedFirefox'));
+    return;
+  }
+  setStatusKey('statusTestingVoice');
+  await speak(getSpokenLang() === 'zh' ? '三' : 'three');
+  if (lastTtsError && document.getElementById('tts-engine').value === 'cloud') {
+    currentStatusKey = '';
+    setStatus(tr('statusCloudIssuePrefix') + ' (' + lastTtsError + '), ' + tr('statusCloudIssueSuffix'));
+  } else {
+    const mode = document.getElementById('tts-engine').value;
+    if (mode === 'cloud' && lastCloudProvider) {
+      currentStatusKey = '';
+      setStatus(tr('statusVoiceCompleteVia') + ' ' + lastCloudProvider);
+    } else {
+      setStatusKey('statusVoiceComplete');
+    }
+  }
+});
+
+btnPause.addEventListener('click', () => {
+  if (paused) {
+    paused = false;
+    btnPause.textContent = tr('btnPause');
+    setStatusKey('statusRunning');
+    if (pauseResolve) pauseResolve();
+  } else {
+    paused = true;
+    btnPause.textContent = tr('btnResume');
+    setStatusKey('statusPaused');
+    if (currentAudio) { currentAudio.pause(); }
+  }
+});
+
+btnStop.addEventListener('click', () => {
+  countdownToken += 1;
+  running = false;
+  paused  = false;
+  browserSynth.cancel();
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (pauseResolve) pauseResolve();
+  stopFlash();
+  clockEl.textContent = '00:00';
+  clockEl.classList.remove('urgent');
+  setStatusKey('statusStopped');
+  resetButtons();
+});
+
+function resetButtons() {
+  btnStart.disabled = false;
+  btnPause.disabled = true;
+  btnStop .disabled = true;
+  btnPause.textContent = tr('btnPause');
+}
+</script>
 </body>
 </html>
