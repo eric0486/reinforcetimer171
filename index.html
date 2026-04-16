@@ -941,7 +941,7 @@ function applyUiLanguage() {
   document.getElementById('btn-stop').textContent = tr('btnStop');
   document.getElementById('btn-pause').textContent = paused ? tr('btnResume') : tr('btnPause');
   document.getElementById('footer-text').innerHTML = tr('footerHtml');
-  if (currentStatusKey !== null) {
+  if (currentStatusKey) {
     setStatus(tr(currentStatusKey));
   }
   updateTtsNote();
@@ -1008,10 +1008,7 @@ function renderKvkRallies() {
   wrap.querySelectorAll('input[type=number]').forEach(input => {
     input.addEventListener('change', () => {
       const idx = parseInt(input.dataset.index, 10);
-      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) {
-        renderKvkRallies();
-        return;
-      }
+      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) return;
       const rowInputs = wrap.querySelectorAll(`input[data-index="${idx}"]`);
       const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
@@ -1033,7 +1030,7 @@ function getKvkPlan() {
       enemySeconds: Math.max(0, r.enemySeconds || 0),
       rallyLeftSeconds: Math.max(0, r.rallyLeftSeconds || 0)
     }))
-    .filter(r => r.enemySeconds > 0 || r.rallyLeftSeconds > 0)
+    .filter(r => r.enemySeconds > 0 && r.rallyLeftSeconds > 0)
     .map(r => ({
       index: r.index,
       enemySeconds: r.enemySeconds,
@@ -1226,7 +1223,7 @@ btnStart.addEventListener('click', async () => {
   remaining = dur;
   kvkTenSecondAlertPlayed = false;
   btnStop .disabled = false;
-  if (currentStatusKey !== null) setStatusKey('statusRunning');
+  if (activeMode === 'normal') setStatusKey('statusRunning');
   loadClip(speechTextForCount(dur)).catch(() => {});
   loadClip(activeMode === 'kvk' ? tr('kvkSendNow') : completionSpeechText()).catch(() => {});
   countdown();
