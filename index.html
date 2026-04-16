@@ -381,7 +381,7 @@
       <div>
         <button type="button" id="btn-add-rally">+ Add Rally</button>
       </div>
-      <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="polite" aria-atomic="true"></div>
+      <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="polite"></div>
       <div class="kvk-hint" id="kvk-help">
         Each rally uses: enemy march time + rally time left. The app tracks the rally that lands soonest.
       </div>
@@ -1112,6 +1112,10 @@ function updateKvkRallyInfoText() {
   updateKvkQueueOutput();
 }
 
+function hasStartedKvkRally() {
+  return kvkRallies.some(rally => (rally.startedAtMs || 0) > 0 && (rally.startedLandingIn || 0) > 0);
+}
+
 function addKvkRally(enemySeconds = 0, rallyLeftSeconds = 0, name = '') {
   kvkRallies.push({
     name: (name || '').trim() || getNextKvkDefaultName(),
@@ -1348,7 +1352,9 @@ normalizeDurationInputs();
 if (kvkRallies.length === 0) addKvkRally();
 applyModeUi();
 applyUiLanguage();
-setInterval(updateKvkRallyInfoText, 1000);
+setInterval(() => {
+  if (hasStartedKvkRally()) updateKvkRallyInfoText();
+}, 1000);
 
 // ── Countdown engine ───────────────────────────────────────────────────────
 async function countdown() {
