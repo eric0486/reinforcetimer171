@@ -344,7 +344,7 @@
   </div>
 
   <!-- Duration -->
-  <div class="row">
+  <div class="row" id="basic-duration-row">
     <label class="row-label" id="label-duration">Duration</label>
     <div class="dur-group">
       <input type="number" id="dur-min" min="0" max="99" value="1" />
@@ -355,7 +355,7 @@
   </div>
 
   <!-- Quick duration presets -->
-  <div class="row">
+  <div class="row" id="basic-presets-row">
     <label class="row-label" id="label-presets">Quick set</label>
     <div class="chip-group">
       <button type="button" class="chip" data-preset="30">30s</button>
@@ -1312,17 +1312,14 @@ function getKvkPlan() {
     .map((r, idx) => ({
       index: idx,
       name: (r.name || '').trim() || getKvkDefaultName(idx),
-      enemySeconds: Math.max(0, r.enemySeconds || 0),
-      rallyLeftSeconds: Math.max(0, r.rallyLeftSeconds || 0)
+      landingIn: Math.max(0, getKvkRuntime(r).landingIn)
     }))
-    .filter(r => r.enemySeconds > 0 && r.rallyLeftSeconds > 0)
+    .filter(r => r.landingIn > 0)
     .map(r => ({
       index: r.index,
       name: r.name,
-      enemySeconds: r.enemySeconds,
-      rallyLeftSeconds: r.rallyLeftSeconds,
-      landingIn: r.enemySeconds + r.rallyLeftSeconds,
-      sendIn: Math.max(0, r.enemySeconds + r.rallyLeftSeconds - myMarch)
+      landingIn: r.landingIn,
+      sendIn: Math.max(0, r.landingIn - myMarch)
     }));
 
   if (!validRallies.length) {
@@ -1344,7 +1341,10 @@ function applyModeUi() {
   const selected = document.querySelector('input[name=timer-mode]:checked');
   activeMode = selected ? selected.value : 'normal';
   kvkTenSecondAlertPlayed = false;
+  const kvkActive = activeMode === 'kvk';
   document.getElementById('kvk-row').style.display = activeMode === 'kvk' ? '' : 'none';
+  document.getElementById('basic-duration-row').style.display = kvkActive ? 'none' : '';
+  document.getElementById('basic-presets-row').style.display = kvkActive ? 'none' : '';
 }
 
 function getDuration() {
