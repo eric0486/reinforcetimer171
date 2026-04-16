@@ -993,9 +993,12 @@ function renderKvkRallies() {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'kvk-rally-remove';
+    remove.dataset.index = String(index);
     remove.textContent = tr('btnRemoveRally');
-    remove.addEventListener('click', () => {
-      kvkRallies.splice(index, 1);
+    remove.addEventListener('click', event => {
+      const idx = parseInt(event.currentTarget.dataset.index, 10);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) return;
+      kvkRallies.splice(idx, 1);
       renderKvkRallies();
     });
 
@@ -1051,6 +1054,7 @@ function getKvkPlan() {
 function applyModeUi() {
   const selected = document.querySelector('input[name=timer-mode]:checked');
   activeMode = selected ? selected.value : 'normal';
+  kvkTenSecondAlertPlayed = false;
   document.getElementById('kvk-row').style.display = activeMode === 'kvk' ? '' : 'none';
 }
 
