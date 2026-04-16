@@ -1051,7 +1051,7 @@ function syncKvkNameSeed() {
 
 function getKvkRuntime(rally) {
   const landingBase = Math.max(0, (rally.enemySeconds || 0) + (rally.rallyLeftSeconds || 0));
-  if (!rally.startedAtMs || !rally.startedLandingIn) {
+  if ((rally.startedAtMs || 0) <= 0 || (rally.startedLandingIn || 0) <= 0) {
     return {
       isStarted: false,
       landingIn: landingBase
@@ -1209,7 +1209,7 @@ function renderKvkRallies() {
       const idx = parseInt(input.dataset.index, 10);
       if (!isValidRallyIndex(idx)) return;
       const rowInputs = Array.from(wrap.querySelectorAll('input[type="number"]'))
-        .filter(el => parseInt(el.dataset.index, 10) === idx);
+        .filter(el => Number(el.dataset.index) === idx);
       const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
       kvkRallies[idx].rallyLeftSeconds = parseMinSec(get('left-min'), get('left-sec'));
