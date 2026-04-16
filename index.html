@@ -186,11 +186,19 @@
     }
     .kvk-queue-output {
       color: #cbd5e1;
-      font-size: .78rem;
-      line-height: 1.4;
+      font-size: 1.18rem;
+      font-weight: 700;
+      line-height: 1.5;
       border-top: 1px solid #374151;
       padding-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: color .2s ease;
     }
+    .kvk-queue-output.urgent { color: var(--red); }
+    .kvk-queue-title { font-size: .95rem; color: #93c5fd; }
+    .kvk-queue-row { font-size: 1.18rem; }
     #btn-add-rally {
       background: var(--fg);
       color: var(--bg);
@@ -531,9 +539,9 @@ const I18N = {
     kvkStatusSelectedLandsIn: 'lands in',
     kvkStatusSelectedSendIn: 'send in',
     kvkAlertNoRallies: 'Add at least one rally with enemy march and rally time left.',
-    kvkTenSecondAlert: 'Send march in ten seconds',
+    kvkTenSecondAlert: '10 second warning. Send march in ten seconds',
     kvkSendNow: 'Send your march now!',
-    kvkSecondarySendWarning: '{name}: send in ten seconds',
+    kvkSecondarySendWarning: '{name}: 10 second warning. send in ten seconds',
     kvkSecondarySendNow: '{name}: send now!',
     ariaMyMarchMin: 'My march minutes',
     ariaMyMarchSec: 'My march seconds',
@@ -618,9 +626,9 @@ const I18N = {
     kvkStatusSelectedLandsIn: '落地倒计时',
     kvkStatusSelectedSendIn: '派兵倒计时',
     kvkAlertNoRallies: '请至少添加一个有效集结（敌方行军 + 集结剩余）。',
-    kvkTenSecondAlert: '十秒后派兵',
+    kvkTenSecondAlert: '10 秒警告，十秒后派兵',
     kvkSendNow: '现在派兵！',
-    kvkSecondarySendWarning: '{name}：十秒后派兵',
+    kvkSecondarySendWarning: '{name}：10 秒警告，十秒后派兵',
     kvkSecondarySendNow: '{name}：现在派兵！',
     ariaMyMarchMin: '我的行军分钟',
     ariaMyMarchSec: '我的行军秒数',
@@ -1134,11 +1142,25 @@ function updateKvkQueueOutput() {
 
   if (!queue.length) {
     output.textContent = tr('kvkQueueEmpty');
+    output.classList.remove('urgent');
     return;
   }
 
-  output.textContent = `${tr('kvkQueuePrefix')}: `
-    + queue.map(item => `${item.name} (${tr('kvkRallyInfoLandsIn')} ${formatClock(item.landingIn)})`).join(' • ');
+  const soonest = queue[0];
+  output.classList.toggle('urgent', soonest.sendIn <= 10);
+  output.textContent = '';
+
+  const title = document.createElement('div');
+  title.className = 'kvk-queue-title';
+  title.textContent = `${tr('kvkQueuePrefix')}:`;
+  output.appendChild(title);
+
+  queue.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'kvk-queue-row';
+    row.textContent = `${idx + 1}. ${item.name} • ${tr('kvkRallyInfoLandsIn')} ${formatClock(item.landingIn)} • ${tr('kvkRallyInfoSendIn')} ${formatClock(item.sendIn)}`;
+    output.appendChild(row);
+  });
 }
 
 function updateKvkRallyInfoText() {
