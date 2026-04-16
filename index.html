@@ -328,9 +328,9 @@
     <div class="kvk-panel">
       <div class="kvk-rally-cell">
         <span id="label-my-march">My march</span>
-        <input type="number" id="my-march-min" min="0" max="999" value="0" aria-label="My march minutes" />
+        <input type="number" id="my-march-min" min="0" max="999" value="0" />
         <span id="unit-my-march-min">m</span>
-        <input type="number" id="my-march-sec" min="0" max="59" value="0" aria-label="My march seconds" />
+        <input type="number" id="my-march-sec" min="0" max="59" value="0" />
         <span id="unit-my-march-sec">s</span>
       </div>
       <div id="kvk-rallies"></div>
@@ -956,6 +956,10 @@ function parseMinSec(minValue, secValue) {
   return m * 60 + s;
 }
 
+function isValidRallyIndex(idx) {
+  return Number.isInteger(idx) && idx >= 0 && idx < kvkRallies.length;
+}
+
 const kvkRallies = [];
 
 function addKvkRally(enemySeconds = 0, rallyLeftSeconds = 0) {
@@ -997,7 +1001,7 @@ function renderKvkRallies() {
     remove.textContent = tr('btnRemoveRally');
     remove.addEventListener('click', event => {
       const idx = parseInt(event.currentTarget.dataset.index, 10);
-      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) return;
+      if (!isValidRallyIndex(idx)) return;
       kvkRallies.splice(idx, 1);
       renderKvkRallies();
     });
@@ -1011,7 +1015,7 @@ function renderKvkRallies() {
   wrap.querySelectorAll('input[type=number]').forEach(input => {
     input.addEventListener('change', () => {
       const idx = parseInt(input.dataset.index, 10);
-      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) return;
+      if (!isValidRallyIndex(idx)) return;
       const rowInputs = wrap.querySelectorAll(`input[data-index="${idx}"]`);
       const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
