@@ -381,7 +381,7 @@
       <div>
         <button type="button" id="btn-add-rally">+ Add Rally</button>
       </div>
-      <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="polite"></div>
+      <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="kvk-hint" id="kvk-help">
         Each rally uses: enemy march time + rally time left. The app tracks the rally that lands soonest.
       </div>
@@ -1208,9 +1208,9 @@ function renderKvkRallies() {
     input.addEventListener('change', () => {
       const idx = parseInt(input.dataset.index, 10);
       if (!isValidRallyIndex(idx)) return;
-      const rowInputs = Array.from(wrap.querySelectorAll('input[type="number"]'))
+      const rowInputs = [...wrap.querySelectorAll('input[type="number"]')]
         .filter(el => Number(el.dataset.index) === idx);
-      const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
+      const get = kind => rowInputs.find(el => el.dataset.kind === kind)?.value || '0';
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
       kvkRallies[idx].rallyLeftSeconds = parseMinSec(get('left-min'), get('left-sec'));
       kvkRallies[idx].startedAtMs = 0;
