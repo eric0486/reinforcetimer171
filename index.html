@@ -891,6 +891,10 @@ function setStatusKey(key) {
   currentStatusKey = key;
   setStatus(tr(key));
 }
+function setCustomStatus(text) {
+  currentStatusKey = null;
+  setStatus(text);
+}
 
 function applyUiLanguage() {
   const lang = getSpokenLang();
@@ -937,7 +941,7 @@ function applyUiLanguage() {
   document.getElementById('btn-stop').textContent = tr('btnStop');
   document.getElementById('btn-pause').textContent = paused ? tr('btnResume') : tr('btnPause');
   document.getElementById('footer-text').innerHTML = tr('footerHtml');
-  if (currentStatusKey) {
+  if (currentStatusKey !== null) {
     setStatus(tr(currentStatusKey));
   }
   updateTtsNote();
@@ -1004,7 +1008,10 @@ function renderKvkRallies() {
   wrap.querySelectorAll('input[type=number]').forEach(input => {
     input.addEventListener('change', () => {
       const idx = parseInt(input.dataset.index, 10);
-      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) return;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= kvkRallies.length) {
+        renderKvkRallies();
+        return;
+      }
       const rowInputs = wrap.querySelectorAll(`input[data-index="${idx}"]`);
       const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
@@ -1156,17 +1163,12 @@ async function countdown() {
     if (flashAt > 0 && count <= flashAt) startFlash();
 
     // Speak?
-    if (activeMode === 'kvk' && !kvkTenSecondAlertPlayed && count === 10) {
-      kvkTenSecondAlertPlayed = true;
-      await speak(tr('kvkTenSecondAlert'));
-      if (token !== countdownToken) return;
-      await new Promise(res => setTimeout(res, 1000));
-      continue;
-    }
-    if (count <= final || count % interval === 0) {
+    const shouldKvkAlert = activeMode === 'kvk' && !kvkTenSecondAlertPlayed && count === 10;
+    if (shouldKvkAlert || count <= final || count % interval === 0) {
+      if (shouldKvkAlert) kvkTenSecondAlertPlayed = true;
       primeUpcoming(count, interval, final);
       const t0 = performance.now();
-      await speak(speechTextForCount(count));
+      await speak(shouldKvkAlert ? tr('kvkTenSecondAlert') : speechTextForCount(count));
       if (token !== countdownToken) return;
       const spoke = performance.now() - t0;
       // Sleep the remainder of this second
@@ -1195,12 +1197,11 @@ btnStart.addEventListener('click', async () => {
     const plan = getKvkPlan();
     if (!plan) { alert(tr('kvkAlertNoRallies')); return; }
     dur = plan.sendIn;
-    setStatus(
+    setCustomStatus(
       `${tr('kvkStatusSelectedPrefix')} #${plan.target.index + 1}: `
       + `${tr('kvkStatusSelectedLandsIn')} ${formatClock(plan.target.landingIn)}, `
       + `${tr('kvkStatusSelectedSendIn')} ${formatClock(plan.sendIn)}`
     );
-    currentStatusKey = '';
   } else if (dur <= 0) {
     alert(tr('alertDurationInvalid'));
     return;
@@ -1209,8 +1210,7 @@ btnStart.addEventListener('click', async () => {
 
   const unlocked = await unlockAudio();
   if (!unlocked) {
-    currentStatusKey = '';
-    setStatus(tr('statusAudioBlocked'));
+    setCustomStatus(tr('statusAudioBlocked'));
   }
 
   // Start immediately; prefetch in background
@@ -1226,7 +1226,7 @@ btnStart.addEventListener('click', async () => {
   remaining = dur;
   kvkTenSecondAlertPlayed = false;
   btnStop .disabled = false;
-  if (currentStatusKey) setStatusKey('statusRunning');
+  if (currentStatusKey !== null) setStatusKey('statusRunning');
   loadClip(speechTextForCount(dur)).catch(() => {});
   loadClip(activeMode === 'kvk' ? tr('kvkSendNow') : completionSpeechText()).catch(() => {});
   countdown();
@@ -1234,26 +1234,22 @@ btnStart.addEventListener('click', async () => {
 
 btnTest.addEventListener('click', async () => {
   if (document.getElementById('tts-engine').value === 'local' && !browserSynth) {
-    currentStatusKey = '';
-    setStatus(tr('statusVoiceUnsupported'));
+    setCustomStatus(tr('statusVoiceUnsupported'));
     return;
   }
   const unlocked = await unlockAudio();
   if (!unlocked) {
-    currentStatusKey = '';
-    setStatus(tr('statusAudioBlockedFirefox'));
+    setCustomStatus(tr('statusAudioBlockedFirefox'));
     return;
   }
   setStatusKey('statusTestingVoice');
   await speak(getSpokenLang() === 'zh' ? '三' : 'three');
   if (lastTtsError && document.getElementById('tts-engine').value === 'cloud') {
-    currentStatusKey = '';
-    setStatus(tr('statusCloudIssuePrefix') + ' (' + lastTtsError + '), ' + tr('statusCloudIssueSuffix'));
+    setCustomStatus(tr('statusCloudIssuePrefix') + ' (' + lastTtsError + '), ' + tr('statusCloudIssueSuffix'));
   } else {
     const mode = document.getElementById('tts-engine').value;
     if (mode === 'cloud' && lastCloudProvider) {
-      currentStatusKey = '';
-      setStatus(tr('statusVoiceCompleteVia') + ' ' + lastCloudProvider);
+      setCustomStatus(tr('statusVoiceCompleteVia') + ' ' + lastCloudProvider);
     } else {
       setStatusKey('statusVoiceComplete');
     }
