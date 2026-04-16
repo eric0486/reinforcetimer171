@@ -802,10 +802,10 @@ async function unlockAudio() {
 
 function googleTtsUrl(text) {
   const tl = getSpokenLang() === 'zh' ? 'zh-CN' : 'en-US';
-  return 'https://translate.google.com/translate_tts'
+  return 'https://translate.googleapis.com/translate_tts'
     + '?ie=UTF-8'
     + '&tl=' + encodeURIComponent(tl)
-    + '&client=tw-ob'
+    + '&client=gtx'
     + '&q=' + encodeURIComponent(text);
 }
 
@@ -960,6 +960,7 @@ let remaining = 0;
 let pauseResolve = null;
 let activeMode = 'normal';
 let kvkTenSecondAlertPlayed = false;
+const MAX_TICK_DRIFT_MS = 1500;
 
 // Per-rally speech plans populated when START is pressed in KvK mode.
 // Each entry: { name, sendIn, isSoonest, tenPlayed, sendPlayed }
@@ -1249,6 +1250,9 @@ function renderKvkRallies() {
       rallyData.startedAtMs = Date.now();
       rallyData.startedLandingIn = landingIn;
       updateKvkRallyInfoText();
+      if (activeMode === 'kvk' && !running) {
+        startTimerFromCurrentMode();
+      }
     });
 
     const remove = document.createElement('button');
@@ -1437,6 +1441,7 @@ async function countdown() {
   const total    = remaining;
   const interval = getInterval();
   const final    = getFinal();
+  let nextTickAt = performance.now();
 
   for (let count = total; count > 0; count--) {
     if (!running) return;
@@ -1445,6 +1450,7 @@ async function countdown() {
     if (paused) {
       await new Promise(res => { pauseResolve = res; });
       pauseResolve = null;
+      nextTickAt = performance.now();
     }
     if (!running) return;
 
@@ -1478,16 +1484,16 @@ async function countdown() {
 
     if (textToSpeak !== null) {
       if (activeMode !== 'kvk') primeUpcoming(count, interval, final);
-      const t0 = performance.now();
-      await speak(textToSpeak);
-      if (token !== countdownToken) return;
-      const spoke = performance.now() - t0;
-      // Sleep the remainder of this second
-      const wait = Math.max(0, 1000 - spoke);
-      await new Promise(res => setTimeout(res, wait));
-    } else {
-      await new Promise(res => setTimeout(res, 1000));
+      // Do not await speech; keeping ticks real-time is more important than full clip playback.
+      // speak() already cancels any active playback before starting the new phrase.
+      speak(textToSpeak);
     }
+    if (token !== countdownToken) return;
+    const now = performance.now();
+    // If delayed by more than ~1.5s (e.g., background tab throttling), reset the schedule.
+    if (now - nextTickAt > MAX_TICK_DRIFT_MS) nextTickAt = now;
+    nextTickAt += 1000;
+    await new Promise(res => setTimeout(res, Math.max(0, nextTickAt - performance.now())));
   }
 
   if (running) {
@@ -1523,7 +1529,7 @@ async function countdown() {
 }
 
 // ── Button handlers ────────────────────────────────────────────────────────
-btnStart.addEventListener('click', async () => {
+async function startTimerFromCurrentMode() {
   let dur = getDuration();
   if (activeMode === 'kvk') {
     const plan = getKvkPlan();
@@ -1572,7 +1578,9 @@ btnStart.addEventListener('click', async () => {
   loadClip(speechTextForCount(dur)).catch(() => {});
   loadClip(activeMode === 'kvk' ? tr('kvkSendNow') : completionSpeechText()).catch(() => {});
   countdown();
-});
+}
+
+btnStart.addEventListener('click', startTimerFromCurrentMode);
 
 btnTest.addEventListener('click', async () => {
   if (document.getElementById('tts-engine').value === 'local' && !browserSynth) {
