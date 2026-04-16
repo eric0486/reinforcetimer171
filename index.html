@@ -1025,15 +1025,6 @@ function isValidRallyIndex(idx) {
 
 const kvkRallies = [];
 
-function escapeHtml(value) {
-  return String(value || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 function getKvkDefaultName(index) {
   return `${tr('kvkPlayerDefaultPrefix')} ${index + 1}`;
 }
@@ -1080,8 +1071,8 @@ function updateKvkQueueOutput() {
     return;
   }
 
-  output.innerHTML = `${tr('kvkQueuePrefix')}: `
-    + queue.map(item => `${escapeHtml(item.name)} (${tr('kvkRallyInfoLandsIn')} ${formatClock(item.landingIn)})`).join(' • ');
+  output.textContent = `${tr('kvkQueuePrefix')}: `
+    + queue.map(item => `${item.name} (${tr('kvkRallyInfoLandsIn')} ${formatClock(item.landingIn)})`).join(' • ');
 }
 
 function updateKvkRallyInfoText() {
@@ -1121,10 +1112,16 @@ function renderKvkRallies() {
 
     const name = document.createElement('div');
     name.className = 'kvk-rally-name';
-    name.innerHTML = `
-      <span>${tr('kvkPlayerName')}</span>
-      <input type="text" value="${escapeHtml(rally.name || '')}" data-kind="name" data-index="${index}" aria-label="${tr('ariaRallyName')}" />
-    `;
+    const nameLabel = document.createElement('span');
+    nameLabel.textContent = tr('kvkPlayerName');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = rally.name || '';
+    nameInput.dataset.kind = 'name';
+    nameInput.dataset.index = String(index);
+    nameInput.setAttribute('aria-label', tr('ariaRallyName'));
+    name.appendChild(nameLabel);
+    name.appendChild(nameInput);
 
     const enemy = document.createElement('div');
     enemy.className = 'kvk-rally-cell';
@@ -1155,6 +1152,7 @@ function renderKvkRallies() {
       const idx = parseInt(event.currentTarget.dataset.index, 10);
       if (!isValidRallyIndex(idx)) return;
       const rallyData = kvkRallies[idx];
+      rallyData.name = (rallyData.name || '').trim() || getKvkDefaultName(idx);
       const landingIn = Math.max(0, (rallyData.enemySeconds || 0) + (rallyData.rallyLeftSeconds || 0));
       if (landingIn <= 0) return;
       rallyData.startedAtMs = Date.now();
@@ -1187,18 +1185,26 @@ function renderKvkRallies() {
     wrap.appendChild(row);
   });
 
-  wrap.querySelectorAll('input[type=number], input[type=text]').forEach(input => {
+  wrap.querySelectorAll('input[type=number]').forEach(input => {
     input.addEventListener('change', () => {
       const idx = parseInt(input.dataset.index, 10);
       if (!isValidRallyIndex(idx)) return;
       const rowInputs = wrap.querySelectorAll(`input[data-index="${idx}"][type="number"]`);
       const get = kind => Array.from(rowInputs).find(el => el.dataset.kind === kind)?.value || '0';
-      const nameInput = wrap.querySelector(`input[data-kind="name"][data-index="${idx}"]`);
-      kvkRallies[idx].name = (nameInput?.value || '').trim() || getKvkDefaultName(idx);
       kvkRallies[idx].enemySeconds = parseMinSec(get('enemy-min'), get('enemy-sec'));
       kvkRallies[idx].rallyLeftSeconds = parseMinSec(get('left-min'), get('left-sec'));
-      if (!kvkRallies[idx].startedAtMs) kvkRallies[idx].startedLandingIn = 0;
+      kvkRallies[idx].startedAtMs = 0;
+      kvkRallies[idx].startedLandingIn = 0;
       renderKvkRallies();
+    });
+  });
+
+  wrap.querySelectorAll('input[type=text][data-kind="name"]').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.index, 10);
+      if (!isValidRallyIndex(idx)) return;
+      kvkRallies[idx].name = (input.value || '').trim() || getKvkDefaultName(idx);
+      updateKvkRallyInfoText();
     });
   });
 
