@@ -1483,9 +1483,11 @@ async function countdown() {
 
     if (textToSpeak !== null) {
       if (activeMode !== 'kvk') primeUpcoming(count, interval, final);
-      speak(textToSpeak).catch(() => {});
+      speak(textToSpeak);
     }
     if (token !== countdownToken) return;
+    const now = performance.now();
+    if (now - nextTickAt > 1500) nextTickAt = now;
     nextTickAt += 1000;
     await new Promise(res => setTimeout(res, Math.max(0, nextTickAt - performance.now())));
   }
