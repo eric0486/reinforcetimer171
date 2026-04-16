@@ -1251,7 +1251,7 @@ function renderKvkRallies() {
       rallyData.startedLandingIn = landingIn;
       updateKvkRallyInfoText();
       if (activeMode === 'kvk' && !running) {
-        btnStart.click();
+        startTimerFromCurrentMode();
       }
     });
 
@@ -1529,7 +1529,7 @@ async function countdown() {
 }
 
 // ── Button handlers ────────────────────────────────────────────────────────
-btnStart.addEventListener('click', async () => {
+async function startTimerFromCurrentMode() {
   let dur = getDuration();
   if (activeMode === 'kvk') {
     const plan = getKvkPlan();
@@ -1578,7 +1578,9 @@ btnStart.addEventListener('click', async () => {
   loadClip(speechTextForCount(dur)).catch(() => {});
   loadClip(activeMode === 'kvk' ? tr('kvkSendNow') : completionSpeechText()).catch(() => {});
   countdown();
-});
+}
+
+btnStart.addEventListener('click', startTimerFromCurrentMode);
 
 btnTest.addEventListener('click', async () => {
   if (document.getElementById('tts-engine').value === 'local' && !browserSynth) {
