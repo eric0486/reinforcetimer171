@@ -1483,10 +1483,12 @@ async function countdown() {
 
     if (textToSpeak !== null) {
       if (activeMode !== 'kvk') primeUpcoming(count, interval, final);
+      // Do not await speech; keeping ticks real-time is more important than full clip playback.
       speak(textToSpeak);
     }
     if (token !== countdownToken) return;
     const now = performance.now();
+    // If delayed by more than ~1.5s (e.g., background tab throttling), reset the schedule.
     if (now - nextTickAt > 1500) nextTickAt = now;
     nextTickAt += 1000;
     await new Promise(res => setTimeout(res, Math.max(0, nextTickAt - performance.now())));
