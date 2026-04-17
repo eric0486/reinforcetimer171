@@ -1019,6 +1019,11 @@ function getDisplayedClockSeconds() {
   return parseMinSec(parts[0], parts[1]);
 }
 
+function getCurrentCountdownSeconds() {
+  if (Number.isFinite(remaining) && remaining >= 0) return remaining;
+  return getDisplayedClockSeconds();
+}
+
 function setStatus(s) { statusEl.textContent = s; }
 
 // ── Countdown state ────────────────────────────────────────────────────────
@@ -1338,7 +1343,7 @@ function renderKvkRallies() {
       if (activeMode === 'kvk' && running) {
         const plan = getKvkPlan();
         if (plan) {
-          applyKvkPlan(plan, getDisplayedClockSeconds(), true);
+          applyKvkPlan(plan, getCurrentCountdownSeconds(), true);
           const soonest = kvkRallyPlans.find(r => r.isSoonest);
           if (soonest && soonest.sendIn > 0) {
             loadClip(speechTextForCount(soonest.sendIn)).catch(() => {});
@@ -1437,12 +1442,14 @@ function getKvkPlan() {
   return { myMarch, target, sendIn, allRallies: validRallies, totalDuration };
 }
 
-function applyKvkPlan(plan, maxSendIn, preserveFlags = false) {
+// referenceCount is the current countdown `count` reference used by KvK speech math.
+// At timer start it is totalDuration; while running live updates use current remaining.
+function applyKvkPlan(plan, referenceCount, preserveFlags = false) {
   const previousByIndex = new Map();
   if (preserveFlags) {
     kvkRallyPlans.forEach(rally => previousByIndex.set(rally.index, rally));
   }
-  kvkMaxSendIn = Math.max(0, parseInt(maxSendIn, 10) || 0);
+  kvkMaxSendIn = Math.max(0, parseInt(referenceCount, 10) || 0);
   kvkRallyPlans = plan.allRallies.map((r, i) => {
     const previous = previousByIndex.get(r.index);
     return {
