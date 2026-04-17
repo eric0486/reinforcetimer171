@@ -1034,7 +1034,7 @@ function getDisplayedClockSeconds() {
 }
 
 function getCurrentCountdownSeconds() {
-  if (running && Number.isFinite(countdownEndsAtMs) && countdownEndsAtMs > 0) {
+  if (Number.isFinite(countdownEndsAtMs) && countdownEndsAtMs > 0) {
     return Math.max(0, Math.ceil((countdownEndsAtMs - performance.now()) / 1000));
   }
   if (Number.isFinite(remaining) && remaining >= 0) return remaining;
@@ -1853,7 +1853,7 @@ btnPause.addEventListener('click', () => {
   if (paused) {
     if (pausedAtMs > 0 && countdownEndsAtMs > 0) {
       const pauseElapsedMs = Math.max(0, performance.now() - pausedAtMs);
-      if (pauseElapsedMs > 0) countdownEndsAtMs += pauseElapsedMs;
+      countdownEndsAtMs += pauseElapsedMs;
     }
     pausedAtMs = 0;
     paused = false;
