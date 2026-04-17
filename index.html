@@ -418,7 +418,8 @@
   <div class="row">
     <label class="row-label" id="label-announce">Announce every</label>
     <div class="radio-group" id="interval-group">
-      <label><input type="radio" name="interval" value="1" checked /> <span id="interval-1">1 s</span></label>
+      <label><input type="radio" name="interval" value="2" checked /> <span id="interval-2">2 s</span></label>
+      <label><input type="radio" name="interval" value="1" /> <span id="interval-1">1 s</span></label>
       <label><input type="radio" name="interval" value="5" />          <span id="interval-5">5 s</span></label>
       <label><input type="radio" name="interval" value="10" />        <span id="interval-10">10 s</span></label>
       <label><input type="radio" name="interval" value="30" />        <span id="interval-30">30 s</span></label>
@@ -552,6 +553,7 @@ const I18N = {
     ariaRallyName: 'Enemy rally player name',
     unitMinute: 'm',
     unitSecond: 's',
+    interval2: '2 s',
     interval1: '1 s',
     interval5: '5 s',
     interval10: '10 s',
@@ -639,6 +641,7 @@ const I18N = {
     ariaRallyName: '敌方集结玩家名称',
     unitMinute: '分',
     unitSecond: '秒',
+    interval2: '2 秒',
     interval1: '1 秒',
     interval5: '5 秒',
     interval10: '10 秒',
@@ -856,7 +859,7 @@ function loadClip(text) {
 function primeUpcoming(count, interval, final) {
   const upcoming = [];
   for (let i = count - 1; i >= Math.max(1, count - 8); i--) {
-    if (i <= final || i % interval === 0) upcoming.push(speechTextForCount(i));
+    if (shouldAnnounceCountdownNumber(i, interval, final)) upcoming.push(speechTextForCount(i));
   }
   Promise.all(upcoming.map(loadClip)).catch(() => {});
 }
@@ -870,7 +873,7 @@ function primeKvkUpcoming(count, interval, final) {
 
     if (rally.isSoonest) {
       for (let i = relCount - 1; i >= Math.max(1, relCount - 8); i--) {
-        if (i <= final || i % interval === 0) upcoming.add(speechTextForCount(i));
+        if (shouldAnnounceCountdownNumber(i, interval, final)) upcoming.add(speechTextForCount(i));
       }
       if (!rally.tenPlayed && relCount > 10 && relCount <= 18) {
         upcoming.add(tr('kvkTenSecondAlert'));
@@ -1025,6 +1028,11 @@ const MAX_TICK_DRIFT_MS = 1500;
 let kvkRallyPlans = [];
 let kvkMaxSendIn  = 0;
 
+function shouldAnnounceCountdownNumber(count, interval, final) {
+  if (count % 2 !== 0) return false;
+  return count <= final || count % interval === 0;
+}
+
 // Returns { text, priority } for a single KvK tick, or null if silent.
 function getKvkSpeechForCount(count, interval, final) {
   const speeches = [];
@@ -1046,7 +1054,7 @@ function getKvkSpeechForCount(count, interval, final) {
         rally.tenPlayed = true;
         hasWarning = true;
         speeches.push(tr('kvkTenSecondAlert'));
-      } else if (relCount > 0 && (relCount <= final || relCount % interval === 0)) {
+      } else if (relCount > 0 && shouldAnnounceCountdownNumber(relCount, interval, final)) {
         speeches.push(speechTextForCount(relCount));
       }
     } else {
@@ -1107,6 +1115,7 @@ function applyUiLanguage() {
   document.getElementById('my-march-sec').setAttribute('aria-label', tr('ariaMyMarchSec'));
   document.getElementById('unit-min').textContent = tr('unitMinute');
   document.getElementById('unit-sec').textContent = tr('unitSecond');
+  document.getElementById('interval-2').textContent = tr('interval2');
   document.getElementById('interval-1').textContent = tr('interval1');
   document.getElementById('interval-5').textContent = tr('interval5');
   document.getElementById('interval-10').textContent = tr('interval10');
@@ -1543,7 +1552,7 @@ async function countdown() {
     if (activeMode === 'kvk') {
       speechRequest = getKvkSpeechForCount(count, interval, final);
     } else {
-      if (count <= final || count % interval === 0) {
+      if (shouldAnnounceCountdownNumber(count, interval, final)) {
         speechRequest = { text: speechTextForCount(count), priority: SPEECH_PRIORITY_NORMAL };
       }
     }
