@@ -854,6 +854,35 @@ function primeUpcoming(count, interval, final) {
   Promise.all(upcoming.map(loadClip)).catch(() => {});
 }
 
+function primeKvkUpcoming(count, interval, final) {
+  const upcoming = new Set();
+  for (const rally of kvkRallyPlans) {
+    const sendCount = kvkMaxSendIn - rally.sendIn;
+    const relCount = count - sendCount;
+    if (relCount < 0) continue;
+
+    if (rally.isSoonest) {
+      for (let i = relCount - 1; i >= Math.max(1, relCount - 8); i--) {
+        if (i <= final || i % interval === 0) upcoming.add(speechTextForCount(i));
+      }
+      if (!rally.tenPlayed && relCount > 10 && relCount <= 18) {
+        upcoming.add(tr('kvkTenSecondAlert'));
+      }
+      if (!rally.sendPlayed && relCount > 0 && relCount <= 8) {
+        upcoming.add(tr('kvkSendNow'));
+      }
+    } else {
+      if (!rally.tenPlayed && relCount > 10 && relCount <= 18) {
+        upcoming.add(tr('kvkSecondarySendWarning').replace('{name}', rally.name));
+      }
+      if (!rally.sendPlayed && relCount > 0 && relCount <= 8) {
+        upcoming.add(tr('kvkSecondarySendNow').replace('{name}', rally.name));
+      }
+    }
+  }
+  Promise.all([...upcoming].map(loadClip)).catch(() => {});
+}
+
 function speak(text) {
   return new Promise(resolve => {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -1483,7 +1512,11 @@ async function countdown() {
     }
 
     if (textToSpeak !== null) {
-      if (activeMode !== 'kvk') primeUpcoming(count, interval, final);
+      if (activeMode === 'kvk') {
+        primeKvkUpcoming(count, interval, final);
+      } else {
+        primeUpcoming(count, interval, final);
+      }
       // Do not await speech; keeping ticks real-time is more important than full clip playback.
       // speak() already cancels any active playback before starting the new phrase.
       speak(textToSpeak);
@@ -1575,8 +1608,26 @@ async function startTimerFromCurrentMode() {
   kvkTenSecondAlertPlayed = false;
   btnStop .disabled = false;
   if (activeMode === 'normal') setStatusKey('statusRunning');
-  loadClip(speechTextForCount(dur)).catch(() => {});
-  loadClip(activeMode === 'kvk' ? tr('kvkSendNow') : completionSpeechText()).catch(() => {});
+  if (activeMode === 'kvk') {
+    const soonest = kvkRallyPlans.find(r => r.isSoonest);
+    if (soonest && soonest.sendIn > 0) {
+      loadClip(speechTextForCount(soonest.sendIn)).catch(() => {});
+    }
+    loadClip(tr('kvkTenSecondAlert')).catch(() => {});
+    kvkRallyPlans.forEach(rally => {
+      if (!rally.isSoonest) {
+        loadClip(tr('kvkSecondarySendWarning').replace('{name}', rally.name)).catch(() => {});
+      }
+      loadClip(
+        rally.isSoonest
+          ? tr('kvkSendNow')
+          : tr('kvkSecondarySendNow').replace('{name}', rally.name)
+      ).catch(() => {});
+    });
+  } else {
+    loadClip(speechTextForCount(dur)).catch(() => {});
+    loadClip(completionSpeechText()).catch(() => {});
+  }
   countdown();
 }
 
