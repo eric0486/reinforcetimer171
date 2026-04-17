@@ -2,7 +2,7 @@
 """
 Discord Countdown Timer
 =======================
-Speaks each second by name using Windows text-to-speech (no beeps).
+Speaks each second using Windows text-to-speech (no beeps).
 
 How to use with Discord
 -----------------------
@@ -40,6 +40,7 @@ _ONES = [
     'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen',
     'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen',
 ]
+_DIGITS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 _TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty',
          'sixty', 'seventy', 'eighty', 'ninety']
 
@@ -52,7 +53,8 @@ def secs_to_words(n: int) -> str:
         return _ONES[n]
     if n < 100:
         t, o = divmod(n, 10)
-        return _TENS[t] + (f' {_ONES[o]}' if o else '')
+        # Faster two-digit callout style (e.g. 22 -> "two two") helps keep speech < 1 second.
+        return _DIGITS[t] if o == 0 else f'{_DIGITS[t]} {_DIGITS[o]}'
     if n < 1000:
         h, r = divmod(n, 100)
         return _ONES[h] + ' hundred' + (f' {secs_to_words(r)}' if r else '')
@@ -80,7 +82,7 @@ class _TTSThread(threading.Thread):
         try:
             import pyttsx3
             self._engine = pyttsx3.init()
-            self._engine.setProperty('rate', 145)
+            self._engine.setProperty('rate', 175)
             all_voices   = self._engine.getProperty('voices')
             self.voices  = all_voices
             self._best_voice_id = self._pick_best(all_voices)
