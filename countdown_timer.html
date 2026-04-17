@@ -563,12 +563,14 @@ let running   = false;
 let paused    = false;
 let remaining = 0;
 let pauseResolve = null;
+const MAX_TICK_DRIFT_MS = 1500;
 
 async function countdown() {
   const token = countdownToken;
   const total    = remaining;
   const interval = getInterval();
   const final    = getFinal();
+  let nextTickAt = performance.now();
 
   for (let count = total; count > 0; count--) {
     if (!running) return;
@@ -577,6 +579,7 @@ async function countdown() {
     if (paused) {
       await new Promise(res => { pauseResolve = res; });
       pauseResolve = null;
+      nextTickAt = performance.now();
     }
     if (!running) return;
 
@@ -592,16 +595,14 @@ async function countdown() {
     // Speak?
     if (count <= final || count % interval === 0) {
       primeUpcoming(count, interval, final);
-      const t0 = performance.now();
-      await speak(secsToWords(count));
-      if (token !== countdownToken) return;
-      const spoke = performance.now() - t0;
-      // Sleep the remainder of this second
-      const wait = Math.max(0, 1000 - spoke);
-      await new Promise(res => setTimeout(res, wait));
-    } else {
-      await new Promise(res => setTimeout(res, 1000));
+      // Keep countdown ticks real-time; speech playback should not delay timer updates.
+      speak(secsToWords(count));
     }
+    if (token !== countdownToken) return;
+    const now = performance.now();
+    if (now - nextTickAt > MAX_TICK_DRIFT_MS) nextTickAt = now;
+    nextTickAt += 1000;
+    await new Promise(res => setTimeout(res, Math.max(0, nextTickAt - performance.now())));
   }
 
   if (running) {
