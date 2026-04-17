@@ -349,6 +349,10 @@
     <div class="radio-group" id="lang-group">
       <label><input type="radio" name="lang" value="en" checked /> <span id="lang-opt-en">English</span></label>
       <label><input type="radio" name="lang" value="zh" /> <span id="lang-opt-zh">中文</span></label>
+      <label><input type="radio" name="lang" value="fr" /> <span id="lang-opt-fr">Français</span></label>
+      <label><input type="radio" name="lang" value="ar" /> <span id="lang-opt-ar">العربية</span></label>
+      <label><input type="radio" name="lang" value="ko" /> <span id="lang-opt-ko">한국어</span></label>
+      <label><input type="radio" name="lang" value="es" /> <span id="lang-opt-es">Español</span></label>
     </div>
   </div>
 
@@ -576,6 +580,10 @@ const I18N = {
     flashHelp: 's  (0 = off)',
     langOptEn: 'English',
     langOptZh: '中文',
+    langOptFr: 'Français',
+    langOptAr: 'العربية',
+    langOptKo: '한국어',
+    langOptEs: 'Español',
     engineCloud: 'Google TTS Voice (Cloud)',
     engineLocal: 'Local Microsoft/System Voice',
     voiceLoading: 'Loading local voices...',
@@ -665,6 +673,10 @@ const I18N = {
     flashHelp: '秒  (0 = 关闭)',
     langOptEn: 'English',
     langOptZh: '中文',
+    langOptFr: 'Français',
+    langOptAr: 'العربية',
+    langOptKo: '한국어',
+    langOptEs: 'Español',
     engineCloud: 'Google TTS 云语音',
     engineLocal: '本地 Microsoft/系统语音',
     voiceLoading: '正在加载本地语音...',
@@ -684,6 +696,62 @@ const I18N = {
 function getSpokenLang() {
   const selected = document.querySelector('input[name=lang]:checked');
   return selected ? selected.value : 'en';
+}
+
+const LANGUAGE_SETTINGS = {
+  en: {
+    htmlLang: 'en',
+    cloudLang: 'en-US',
+    matcher: /^en/i,
+    preferred: /microsoft|zira|david|aria|jenny|guy/i,
+    testWord: 'three',
+    completionText: "Time's up!"
+  },
+  zh: {
+    htmlLang: 'zh',
+    cloudLang: 'zh-CN',
+    matcher: /^(zh|cmn|yue)/i,
+    preferred: /microsoft|xiaoxiao|yunxi|yaoyao|hanhan|huihui/i,
+    testWord: '三',
+    completionText: '时间到！'
+  },
+  fr: {
+    htmlLang: 'fr',
+    cloudLang: 'fr-FR',
+    matcher: /^fr/i,
+    preferred: /microsoft|denise|hortense|remi|henri|elise/i,
+    testWord: 'trois',
+    completionText: 'Temps écoulé !'
+  },
+  ar: {
+    htmlLang: 'ar',
+    cloudLang: 'ar-SA',
+    matcher: /^ar/i,
+    preferred: /microsoft|naayf|hoda|salma|amira|tarik/i,
+    testWord: 'ثلاثة',
+    completionText: 'انتهى الوقت!'
+  },
+  ko: {
+    htmlLang: 'ko',
+    cloudLang: 'ko-KR',
+    matcher: /^ko/i,
+    preferred: /microsoft|heami|injoon|sunhi/i,
+    testWord: '셋',
+    completionText: '시간 종료!'
+  },
+  es: {
+    htmlLang: 'es',
+    cloudLang: 'es-ES',
+    matcher: /^es/i,
+    preferred: /microsoft|helena|elvira|dalia|javier|alvaro|sabina|pablo/i,
+    testWord: 'tres',
+    completionText: '¡Se acabó el tiempo!'
+  }
+};
+
+function getLanguageSettings() {
+  const spokenLang = getSpokenLang();
+  return LANGUAGE_SETTINGS[spokenLang] || LANGUAGE_SETTINGS.en;
 }
 
 function tr(key) {
@@ -727,11 +795,14 @@ function secsToWordsZh(n) {
 }
 
 function speechTextForCount(n) {
-  return getSpokenLang() === 'zh' ? secsToWordsZh(n) : secsToWords(n);
+  const spokenLang = getSpokenLang();
+  if (spokenLang === 'zh') return secsToWordsZh(n);
+  if (spokenLang === 'en') return secsToWords(n);
+  return String(n);
 }
 
 function completionSpeechText() {
-  return getSpokenLang() === 'zh' ? '时间到！' : "Time's up!";
+  return getLanguageSettings().completionText;
 }
 
 // ── TTS (Google cloud + local Microsoft/system) ───────────────────────────
@@ -772,12 +843,10 @@ function populateLocalVoices() {
     return;
   }
   const voices = browserSynth.getVoices() || [];
-  const spokenLang = getSpokenLang();
-  const langMatcher = spokenLang === 'zh' ? /^(zh|cmn|yue)/i : /^en/i;
+  const settings = getLanguageSettings();
+  const langMatcher = settings.matcher;
   const languageVoices = voices.filter(v => langMatcher.test(v.lang || ''));
-  const preferred = spokenLang === 'zh'
-    ? languageVoices.filter(v => /microsoft|xiaoxiao|yunxi|yaoyao|hanhan|huihui/i.test(v.name))
-    : languageVoices.filter(v => /microsoft|zira|david|aria|jenny|guy/i.test(v.name));
+  const preferred = languageVoices.filter(v => settings.preferred.test(v.name || ''));
   const list = preferred.length ? preferred : (languageVoices.length ? languageVoices : voices);
 
   sel.innerHTML = '';
@@ -821,7 +890,7 @@ async function unlockAudio() {
 }
 
 function googleTtsUrl(text) {
-  const tl = getSpokenLang() === 'zh' ? 'zh-CN' : 'en-US';
+  const tl = getLanguageSettings().cloudLang;
   return 'https://translate.googleapis.com/translate_tts'
     + '?ie=UTF-8'
     + '&tl=' + encodeURIComponent(tl)
@@ -918,13 +987,13 @@ function speak(text) {
           return;
         }
         const utt = new SpeechSynthesisUtterance(text);
-        const spokenLang = getSpokenLang();
-        const targetLang = spokenLang === 'zh' ? 'zh-CN' : 'en-US';
+        const settings = getLanguageSettings();
+        const targetLang = settings.cloudLang;
         const sel = document.getElementById('voice-select');
         const list = sel._voiceList || [];
         const idx = parseInt(sel.value, 10);
         const voices = browserSynth.getVoices() || [];
-        const langMatcher = spokenLang === 'zh' ? /^(zh|cmn|yue)/i : /^en/i;
+        const langMatcher = settings.matcher;
         const pick = (Number.isInteger(idx) && idx >= 0 && idx < list.length)
           ? list[idx]
           : (voices.find(v => langMatcher.test(v.lang || '')) || voices[0]);
@@ -1138,8 +1207,8 @@ function setCustomStatus(text) {
 }
 
 function applyUiLanguage() {
-  const lang = getSpokenLang();
-  document.documentElement.lang = lang === 'zh' ? 'zh' : 'en';
+  const settings = getLanguageSettings();
+  document.documentElement.lang = settings.htmlLang;
   document.title = tr('pageTitle');
   document.getElementById('title').textContent = tr('pageTitle');
   document.getElementById('label-duration').textContent = tr('labelDuration');
@@ -1178,6 +1247,10 @@ function applyUiLanguage() {
   document.getElementById('flash-help').textContent = tr('flashHelp');
   document.getElementById('lang-opt-en').textContent = tr('langOptEn');
   document.getElementById('lang-opt-zh').textContent = tr('langOptZh');
+  document.getElementById('lang-opt-fr').textContent = tr('langOptFr');
+  document.getElementById('lang-opt-ar').textContent = tr('langOptAr');
+  document.getElementById('lang-opt-ko').textContent = tr('langOptKo');
+  document.getElementById('lang-opt-es').textContent = tr('langOptEs');
   document.getElementById('engine-cloud').textContent = tr('engineCloud');
   document.getElementById('engine-local').textContent = tr('engineLocal');
   document.getElementById('btn-start').textContent = tr('btnStart');
@@ -1833,7 +1906,7 @@ btnTest.addEventListener('click', async () => {
     return;
   }
   setStatusKey('statusTestingVoice');
-  await speak(getSpokenLang() === 'zh' ? '三' : 'three');
+  await speak(getLanguageSettings().testWord);
   if (lastTtsError && document.getElementById('tts-engine').value === 'cloud') {
     setCustomStatus(tr('statusCloudIssuePrefix') + ' (' + lastTtsError + '), ' + tr('statusCloudIssueSuffix'));
   } else {
