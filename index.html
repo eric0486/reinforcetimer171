@@ -199,10 +199,18 @@
     .kvk-queue-output.urgent { color: var(--red); }
     .kvk-queue-title { font-size: .95rem; color: #93c5fd; }
     .kvk-queue-row { font-size: 1.18rem; }
+    .kvk-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     #btn-add-rally {
       background: var(--fg);
       color: var(--bg);
       border: 1px solid var(--gray);
+      padding: 7px 12px;
+      font-size: .85rem;
+    }
+    #btn-clear-queue {
+      background: #3b1f1f;
+      color: #fff;
+      border: 1px solid #555;
       padding: 7px 12px;
       font-size: .85rem;
     }
@@ -386,8 +394,9 @@
         <span id="unit-my-march-sec">s</span>
       </div>
       <div id="kvk-rallies"></div>
-      <div>
+      <div class="kvk-actions">
         <button type="button" id="btn-add-rally">+ Add Rally</button>
+        <button type="button" id="btn-clear-queue">Clear Queue</button>
       </div>
       <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="assertive"></div>
       <div class="kvk-hint" id="kvk-help">
@@ -524,6 +533,7 @@ const I18N = {
     unitShortM: 'm',
     unitShortS: 's',
     btnAddRally: '+ Add Rally',
+    btnClearQueue: 'Clear Queue',
     btnStartRally: 'Start Timer',
     btnRemoveRally: 'Remove',
     kvkEnemyMarch: 'Enemy march',
@@ -543,7 +553,7 @@ const I18N = {
     kvkTenSecondAlert: '10 second warning',
     kvkSendNow: 'Send your march now!',
     kvkSecondarySendWarning: '{name}: 10 second warning',
-    kvkSecondarySendNow: '{name}: send now!',
+    kvkSecondarySendNow: 'Send now!',
     ariaMyMarchMin: 'My march minutes',
     ariaMyMarchSec: 'My march seconds',
     ariaEnemyMin: 'Enemy march minutes',
@@ -612,6 +622,7 @@ const I18N = {
     unitShortM: '分',
     unitShortS: '秒',
     btnAddRally: '+ 添加集结',
+    btnClearQueue: '清空队列',
     btnStartRally: '开始计时',
     btnRemoveRally: '删除',
     kvkEnemyMarch: '敌方行军',
@@ -631,7 +642,7 @@ const I18N = {
     kvkTenSecondAlert: '10 秒警告，十秒后派兵',
     kvkSendNow: '现在派兵！',
     kvkSecondarySendWarning: '{name}：10 秒警告，十秒后派兵',
-    kvkSecondarySendNow: '{name}：现在派兵！',
+    kvkSecondarySendNow: '现在派兵！',
     ariaMyMarchMin: '我的行军分钟',
     ariaMyMarchSec: '我的行军秒数',
     ariaEnemyMin: '敌方行军分钟',
@@ -886,7 +897,7 @@ function primeKvkUpcoming(count, interval, final) {
         upcoming.add(tr('kvkSecondarySendWarning').replace('{name}', rally.name));
       }
       if (!rally.sendPlayed && relCount > 0 && relCount <= 8) {
-        upcoming.add(tr('kvkSecondarySendNow').replace('{name}', rally.name));
+        upcoming.add(tr('kvkSecondarySendNow'));
       }
     }
   }
@@ -1020,6 +1031,9 @@ function getDisplayedClockSeconds() {
 }
 
 function getCurrentCountdownSeconds() {
+  if (running && Number.isFinite(countdownEndsAtMs) && countdownEndsAtMs > 0) {
+    return Math.max(0, Math.ceil((countdownEndsAtMs - performance.now()) / 1000));
+  }
   if (Number.isFinite(remaining) && remaining >= 0) return remaining;
   return getDisplayedClockSeconds();
 }
@@ -1030,6 +1044,8 @@ function setStatus(s) { statusEl.textContent = s; }
 let running   = false;
 let paused    = false;
 let remaining = 0;
+let countdownEndsAtMs = 0;
+let pausedAtMs = 0;
 let pauseResolve = null;
 let activeMode = 'normal';
 let kvkTenSecondAlertPlayed = false;
@@ -1094,7 +1110,7 @@ function getKvkSpeechForCount(count, interval, final) {
       // the final (latest) rally is not double-announced here and in the post-loop block.
       if (relCount === 0 && sendCount > 0 && !rally.sendPlayed) {
         rally.sendPlayed = true;
-        speeches.push(tr('kvkSecondarySendNow').replace('{name}', rally.name));
+        speeches.push(tr('kvkSecondarySendNow'));
       } else if (relCount === 10 && !rally.tenPlayed) {
         rally.tenPlayed = true;
         hasWarning = true;
@@ -1142,6 +1158,7 @@ function applyUiLanguage() {
   document.getElementById('unit-my-march-min').textContent = tr('unitShortM');
   document.getElementById('unit-my-march-sec').textContent = tr('unitShortS');
   document.getElementById('btn-add-rally').textContent = tr('btnAddRally');
+  document.getElementById('btn-clear-queue').textContent = tr('btnClearQueue');
   document.getElementById('kvk-help').textContent = tr('kvkHelp');
   document.getElementById('my-march-min').setAttribute('aria-label', tr('ariaMyMarchMin'));
   document.getElementById('my-march-sec').setAttribute('aria-label', tr('ariaMyMarchSec'));
@@ -1523,6 +1540,38 @@ function applyModeUi() {
   document.getElementById('flash-row').style.display = kvkActive ? 'none' : '';
 }
 
+function clearKvkQueue() {
+  kvkRallies.forEach(rally => {
+    rally.startedAtMs = 0;
+    rally.startedLandingIn = 0;
+  });
+  kvkRallyPlans = [];
+  kvkMaxSendIn = 0;
+  kvkTenSecondAlertPlayed = false;
+
+  if (activeMode === 'kvk' && running) {
+    countdownToken += 1;
+    running = false;
+    paused = false;
+    remaining = 0;
+    countdownEndsAtMs = 0;
+    pausedAtMs = 0;
+    if (browserSynth && typeof browserSynth.cancel === 'function') {
+      browserSynth.cancel();
+    }
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    clearSpeechPriorityState();
+    if (pauseResolve) pauseResolve();
+    stopFlash();
+    clockEl.textContent = '00:00';
+    clockEl.classList.remove('urgent');
+    setStatusKey('statusReady');
+    resetButtons();
+  }
+
+  updateKvkRallyInfoText();
+}
+
 function getDuration() {
   const minEl = document.getElementById('dur-min');
   const secEl = document.getElementById('dur-sec');
@@ -1600,6 +1649,7 @@ document.querySelectorAll('input[name=lang]').forEach(el => {
   });
 });
 document.getElementById('btn-add-rally').addEventListener('click', () => addKvkRally());
+document.getElementById('btn-clear-queue').addEventListener('click', clearKvkQueue);
 document.getElementById('my-march-min').addEventListener('input', updateKvkRallyInfoText);
 document.getElementById('my-march-sec').addEventListener('input', updateKvkRallyInfoText);
 normalizeDurationInputs();
@@ -1688,11 +1738,10 @@ async function countdown() {
         if (sendCount === 0 && !rally.sendPlayed) {
           rally.sendPlayed = true;
           finalSpeeches.push(
-            // Single-rally: use the generic "send now" to preserve the existing voice experience.
-            // Multi-rally: include the player name so the caller knows whose rally is landing.
+            // Use generic send-now speech to keep wording consistent across rallies.
             kvkRallyPlans.length === 1
               ? tr('kvkSendNow')
-              : tr('kvkSecondarySendNow').replace('{name}', rally.name)
+              : tr('kvkSecondarySendNow')
           );
         }
       }
@@ -1704,6 +1753,9 @@ async function countdown() {
     setStatusKey('statusDone');
     resetButtons();
     running = false;
+    remaining = 0;
+    countdownEndsAtMs = 0;
+    pausedAtMs = 0;
   }
 }
 
@@ -1737,6 +1789,8 @@ async function startTimerFromCurrentMode() {
   running   = true;
   paused    = false;
   remaining = dur;
+  countdownEndsAtMs = performance.now() + (dur * 1000);
+  pausedAtMs = 0;
   clearSpeechPriorityState();
   kvkTenSecondAlertPlayed = false;
   btnStop .disabled = false;
@@ -1754,7 +1808,7 @@ async function startTimerFromCurrentMode() {
       loadClip(
         rally.isSoonest
           ? tr('kvkSendNow')
-          : tr('kvkSecondarySendNow').replace('{name}', rally.name)
+          : tr('kvkSecondarySendNow')
       ).catch(() => {});
     });
   } else {
@@ -1792,12 +1846,17 @@ btnTest.addEventListener('click', async () => {
 
 btnPause.addEventListener('click', () => {
   if (paused) {
+    if (pausedAtMs > 0 && countdownEndsAtMs > 0) {
+      countdownEndsAtMs += (performance.now() - pausedAtMs);
+    }
+    pausedAtMs = 0;
     paused = false;
     btnPause.textContent = tr('btnPause');
     setStatusKey('statusRunning');
     if (pauseResolve) pauseResolve();
   } else {
     paused = true;
+    pausedAtMs = performance.now();
     btnPause.textContent = tr('btnResume');
     setStatusKey('statusPaused');
     if (currentAudio) { currentAudio.pause(); }
@@ -1809,6 +1868,9 @@ btnStop.addEventListener('click', () => {
   countdownToken += 1;
   running = false;
   paused  = false;
+  remaining = 0;
+  countdownEndsAtMs = 0;
+  pausedAtMs = 0;
   if (browserSynth && typeof browserSynth.cancel === 'function') {
     browserSynth.cancel();
   }
