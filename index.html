@@ -959,6 +959,11 @@ function requestSpeak(text, priority = 1) {
   });
 }
 
+function clearSpeechPriorityState() {
+  speechSequence += 1;
+  currentSpeechPriority = 0;
+}
+
 // ── UI helpers ─────────────────────────────────────────────────────────────
 const clockEl  = document.getElementById('clock');
 const statusEl = document.getElementById('status');
@@ -1621,6 +1626,7 @@ async function startTimerFromCurrentMode() {
   running   = true;
   paused    = false;
   remaining = dur;
+  clearSpeechPriorityState();
   kvkTenSecondAlertPlayed = false;
   btnStop .disabled = false;
   if (activeMode === 'normal') setStatusKey('statusRunning');
@@ -1684,6 +1690,7 @@ btnPause.addEventListener('click', () => {
     btnPause.textContent = tr('btnResume');
     setStatusKey('statusPaused');
     if (currentAudio) { currentAudio.pause(); }
+    clearSpeechPriorityState();
   }
 });
 
@@ -1695,6 +1702,7 @@ btnStop.addEventListener('click', () => {
     browserSynth.cancel();
   }
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  clearSpeechPriorityState();
   if (pauseResolve) pauseResolve();
   stopFlash();
   clockEl.textContent = '00:00';
