@@ -826,6 +826,8 @@ async function buildAudio(text) {
   const engine = document.getElementById('tts-engine').value;
   if (engine === 'cloud') {
     const a = new Audio(googleTtsUrl(text));
+    a.preload = 'auto';
+    a.load();
     lastCloudProvider = 'Google TTS';
     return a;
   }
@@ -948,6 +950,15 @@ function speak(text) {
   });
 }
 
+function requestSpeak(text, priority = 1) {
+  if (priority < currentSpeechPriority) return;
+  const seq = ++speechSequence;
+  currentSpeechPriority = priority;
+  speak(text).finally(() => {
+    if (speechSequence === seq) currentSpeechPriority = 0;
+  });
+}
+
 // ── UI helpers ─────────────────────────────────────────────────────────────
 const clockEl  = document.getElementById('clock');
 const statusEl = document.getElementById('status');
@@ -989,6 +1000,8 @@ let remaining = 0;
 let pauseResolve = null;
 let activeMode = 'normal';
 let kvkTenSecondAlertPlayed = false;
+let currentSpeechPriority = 0;
+let speechSequence = 0;
 const MAX_TICK_DRIFT_MS = 1500;
 
 // Per-rally speech plans populated when START is pressed in KvK mode.
@@ -996,9 +1009,10 @@ const MAX_TICK_DRIFT_MS = 1500;
 let kvkRallyPlans = [];
 let kvkMaxSendIn  = 0;
 
-// Returns the speech string for a single countdown tick in KvK mode, or null if silent.
+// Returns { text, priority } for a single KvK tick, or null if silent.
 function getKvkSpeechForCount(count, interval, final) {
   const speeches = [];
+  let hasWarning = false;
   for (const rally of kvkRallyPlans) {
     // sendCount: the value of `count` at which this rally's troops must be sent.
     // For the latest rally sendCount === 0, which is handled post-loop.
@@ -1014,6 +1028,7 @@ function getKvkSpeechForCount(count, interval, final) {
         speeches.push(tr('kvkSendNow'));
       } else if (relCount === 10 && !rally.tenPlayed) {
         rally.tenPlayed = true;
+        hasWarning = true;
         speeches.push(tr('kvkTenSecondAlert'));
       } else if (relCount > 0 && (relCount <= final || relCount % interval === 0)) {
         speeches.push(speechTextForCount(relCount));
@@ -1026,11 +1041,14 @@ function getKvkSpeechForCount(count, interval, final) {
         speeches.push(tr('kvkSecondarySendNow').replace('{name}', rally.name));
       } else if (relCount === 10 && !rally.tenPlayed) {
         rally.tenPlayed = true;
+        hasWarning = true;
         speeches.push(tr('kvkSecondarySendWarning').replace('{name}', rally.name));
       }
     }
   }
-  return speeches.length > 0 ? speeches.join('. ') : null;
+  return speeches.length > 0
+    ? { text: speeches.join('. '), priority: hasWarning ? 2 : 1 }
+    : null;
 }
 
 let currentStatusKey = 'statusReady';
@@ -1502,24 +1520,22 @@ async function countdown() {
     if (flashAt > 0 && count <= flashAt) startFlash();
 
     // Speak?
-    let textToSpeak = null;
+    let speechRequest = null;
     if (activeMode === 'kvk') {
-      textToSpeak = getKvkSpeechForCount(count, interval, final);
+      speechRequest = getKvkSpeechForCount(count, interval, final);
     } else {
       if (count <= final || count % interval === 0) {
-        textToSpeak = speechTextForCount(count);
+        speechRequest = { text: speechTextForCount(count), priority: 1 };
       }
     }
 
-    if (textToSpeak !== null) {
+    if (speechRequest !== null) {
+      requestSpeak(speechRequest.text, speechRequest.priority);
       if (activeMode === 'kvk') {
         primeKvkUpcoming(count, interval, final);
       } else {
         primeUpcoming(count, interval, final);
       }
-      // Do not await speech; keeping ticks real-time is more important than full clip playback.
-      // speak() already cancels any active playback before starting the new phrase.
-      speak(textToSpeak);
     }
     if (token !== countdownToken) return;
     const now = performance.now();
