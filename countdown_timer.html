@@ -596,7 +596,7 @@ async function countdown() {
     if (count <= final || count % interval === 0) {
       primeUpcoming(count, interval, final);
       // Keep countdown ticks real-time; speech playback should not delay timer updates.
-      speak(secsToWords(count));
+      speak(secsToWords(count)).catch(() => {});
     }
     if (token !== countdownToken) return;
     const now = performance.now();
