@@ -959,13 +959,15 @@ function speak(text) {
 // - SPEECH_PRIORITY_NORMAL: regular countdown numbers.
 // - SPEECH_PRIORITY_WARNING: KvK warning messages that should not be interrupted by normal speech.
 function requestSpeak(text, priority = SPEECH_PRIORITY_NORMAL) {
-  // Intentionally drop incoming speech if its priority is lower than currently playing speech.
+  // Prevent normal countdown numbers from interrupting active warning speech.
+  // Lower-priority incoming speech is intentionally dropped while higher-priority speech is active.
   if (priority < currentSpeechPriority) return;
   const seq = ++speechSequence;
   currentSpeechPriority = priority;
   speak(text).catch(() => {
     // speak() already degrades internally; this is a final defensive no-op.
   }).finally(() => {
+    // Only the latest speech request can clear priority state; older completions are ignored.
     if (speechSequence === seq) currentSpeechPriority = SPEECH_PRIORITY_NONE;
   });
 }
@@ -1547,7 +1549,8 @@ async function countdown() {
     }
 
     if (speechRequest !== null) {
-      // Fire-and-forget speech keeps countdown ticks aligned to wall time.
+      // Fire-and-forget keeps countdown ticks aligned to wall time.
+      // If a higher-priority warning is active, lower-priority speech is intentionally dropped.
       requestSpeak(speechRequest.text, speechRequest.priority);
       if (activeMode === 'kvk') {
         primeKvkUpcoming(count, interval, final);
