@@ -1533,6 +1533,7 @@ function applyModeUi() {
   activeMode = selected ? selected.value : 'normal';
   kvkTenSecondAlertPlayed = false;
   const kvkActive = activeMode === 'kvk';
+  document.getElementById('clock').style.display = kvkActive ? 'none' : 'block';
   document.getElementById('kvk-row').style.display = activeMode === 'kvk' ? '' : 'none';
   document.getElementById('basic-duration-row').style.display = kvkActive ? 'none' : '';
   document.getElementById('basic-presets-row').style.display = kvkActive ? 'none' : '';
