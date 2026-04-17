@@ -397,7 +397,7 @@
       <div id="kvk-rallies"></div>
       <div class="kvk-actions">
         <button type="button" id="btn-add-rally">+ Add Rally</button>
-        <button type="button" id="btn-clear-queue">Clear Queue</button>
+        <button type="button" id="btn-clear-queue" aria-label="Clear queue">Clear Queue</button>
       </div>
       <div id="kvk-queue-output" class="kvk-queue-output" role="status" aria-live="assertive"></div>
       <div class="kvk-hint" id="kvk-help">
@@ -562,6 +562,7 @@ const I18N = {
     ariaRallyMin: 'Rally left minutes',
     ariaRallySec: 'Rally left seconds',
     ariaRallyName: 'Enemy rally player name',
+    ariaClearQueue: 'Clear active KvK queue',
     unitMinute: 'm',
     unitSecond: 's',
     interval2: '2 s',
@@ -651,6 +652,7 @@ const I18N = {
     ariaRallyMin: '集结剩余分钟',
     ariaRallySec: '集结剩余秒数',
     ariaRallyName: '敌方集结玩家名称',
+    ariaClearQueue: '清空当前 KvK 队列',
     unitMinute: '分',
     unitSecond: '秒',
     interval2: '2 秒',
@@ -1163,6 +1165,8 @@ function applyUiLanguage() {
   document.getElementById('kvk-help').textContent = tr('kvkHelp');
   document.getElementById('my-march-min').setAttribute('aria-label', tr('ariaMyMarchMin'));
   document.getElementById('my-march-sec').setAttribute('aria-label', tr('ariaMyMarchSec'));
+  document.getElementById('btn-clear-queue').setAttribute('aria-label', tr('ariaClearQueue'));
+  document.getElementById('btn-clear-queue').title = tr('btnClearQueue');
   document.getElementById('unit-min').textContent = tr('unitMinute');
   document.getElementById('unit-sec').textContent = tr('unitSecond');
   document.getElementById('interval-2').textContent = tr('interval2');
@@ -1848,7 +1852,8 @@ btnTest.addEventListener('click', async () => {
 btnPause.addEventListener('click', () => {
   if (paused) {
     if (pausedAtMs > 0 && countdownEndsAtMs > 0) {
-      countdownEndsAtMs += (performance.now() - pausedAtMs);
+      const pauseElapsedMs = Math.max(0, performance.now() - pausedAtMs);
+      if (pauseElapsedMs > 0) countdownEndsAtMs += pauseElapsedMs;
     }
     pausedAtMs = 0;
     paused = false;
