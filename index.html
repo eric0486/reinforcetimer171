@@ -1049,10 +1049,26 @@ function shouldAnnounceCountdownNumber(count, interval, final) {
   return count <= final || count % interval === 0;
 }
 
+function getKvkCurrentSoonestIndex(count) {
+  let soonestIndex = null;
+  let soonestRelCount = Infinity;
+  for (const rally of kvkRallyPlans) {
+    const sendCount = kvkMaxSendIn - rally.sendIn;
+    const relCount = count - sendCount;
+    if (relCount < 0) continue;
+    if (relCount < soonestRelCount) {
+      soonestRelCount = relCount;
+      soonestIndex = rally.index;
+    }
+  }
+  return soonestIndex;
+}
+
 // Returns { text, priority } for a single KvK tick, or null if silent.
 function getKvkSpeechForCount(count, interval, final) {
   const speeches = [];
   let hasWarning = false;
+  const currentSoonestIndex = getKvkCurrentSoonestIndex(count);
   for (const rally of kvkRallyPlans) {
     // sendCount: the value of `count` at which this rally's troops must be sent.
     // For the latest rally sendCount === 0, which is handled post-loop.
@@ -1061,7 +1077,7 @@ function getKvkSpeechForCount(count, interval, final) {
 
     if (relCount < 0) continue; // already past (shouldn't happen inside loop)
 
-    if (rally.isSoonest) {
+    if (rally.index === currentSoonestIndex) {
       if (relCount === 0 && sendCount > 0 && !rally.sendPlayed) {
         // sendCount > 0 means this is NOT the final (latest) rally – that fires post-loop.
         rally.sendPlayed = true;
@@ -1070,7 +1086,7 @@ function getKvkSpeechForCount(count, interval, final) {
         rally.tenPlayed = true;
         hasWarning = true;
         speeches.push(tr('kvkTenSecondAlert'));
-      } else if (relCount > 0 && shouldAnnounceCountdownNumber(relCount, interval, final)) {
+      } else if (relCount > 0 && relCount <= final && shouldAnnounceCountdownNumber(relCount, interval, final)) {
         speeches.push(speechTextForCount(relCount));
       }
     } else {
@@ -1211,6 +1227,29 @@ function getKvkRuntime(rally) {
   };
 }
 
+function getKvkVisualRuntime(index, myMarch) {
+  if (activeMode === 'kvk' && running) {
+    const rallyPlan = kvkRallyPlans.find(r => r.index === index);
+    if (rallyPlan) {
+      const countNow = Math.max(0, getCurrentCountdownSeconds());
+      const sendCount = kvkMaxSendIn - rallyPlan.sendIn;
+      const sendIn = Math.max(0, countNow - sendCount);
+      return {
+        isStarted: true,
+        landingIn: sendIn + myMarch,
+        sendIn
+      };
+    }
+  }
+  const runtime = getKvkRuntime(kvkRallies[index]);
+  const sendIn = Math.max(0, runtime.landingIn - myMarch);
+  return {
+    isStarted: runtime.isStarted,
+    landingIn: runtime.landingIn,
+    sendIn
+  };
+}
+
 function updateKvkQueueOutput() {
   const output = document.getElementById('kvk-queue-output');
   if (!output) return;
@@ -1220,12 +1259,12 @@ function updateKvkQueueOutput() {
   );
   const queue = kvkRallies
     .map((rally, index) => {
-      const runtime = getKvkRuntime(rally);
+      const runtime = getKvkVisualRuntime(index, myMarch);
       return {
         index,
         name: (rally.name || '').trim() || getKvkDefaultName(index),
         landingIn: runtime.landingIn,
-        sendIn: Math.max(0, runtime.landingIn - myMarch),
+        sendIn: runtime.sendIn,
         isStarted: runtime.isStarted
       };
     })
@@ -1263,8 +1302,8 @@ function updateKvkRallyInfoText() {
   document.querySelectorAll('.kvk-rally-info').forEach(info => {
     const idx = parseInt(info.dataset.index, 10);
     if (!isValidRallyIndex(idx)) return;
-    const runtime = getKvkRuntime(kvkRallies[idx]);
-    const sendIn = Math.max(0, runtime.landingIn - myMarch);
+    const runtime = getKvkVisualRuntime(idx, myMarch);
+    const sendIn = runtime.sendIn;
     info.textContent = runtime.isStarted
       ? `${tr('kvkRallyInfoLandsIn')} ${formatClock(runtime.landingIn)} • ${tr('kvkRallyInfoSendIn')} ${formatClock(sendIn)}`
       : `${tr('kvkRallyInfoReady')} • ${tr('kvkRallyInfoLandsIn')} ${formatClock(runtime.landingIn)}`;
