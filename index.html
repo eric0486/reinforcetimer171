@@ -950,7 +950,10 @@ function speak(text) {
   });
 }
 
-function requestSpeak(text, priority = 1) {
+// Queue speech with interruption priority.
+// - SPEECH_PRIORITY_NORMAL: regular countdown numbers.
+// - SPEECH_PRIORITY_WARNING: KvK warning messages that should not be interrupted by normal speech.
+function requestSpeak(text, priority = SPEECH_PRIORITY_NORMAL) {
   if (priority < currentSpeechPriority) return;
   const seq = ++speechSequence;
   currentSpeechPriority = priority;
@@ -1005,6 +1008,8 @@ let remaining = 0;
 let pauseResolve = null;
 let activeMode = 'normal';
 let kvkTenSecondAlertPlayed = false;
+const SPEECH_PRIORITY_NORMAL = 1;
+const SPEECH_PRIORITY_WARNING = 2;
 let currentSpeechPriority = 0;
 let speechSequence = 0;
 const MAX_TICK_DRIFT_MS = 1500;
@@ -1052,7 +1057,10 @@ function getKvkSpeechForCount(count, interval, final) {
     }
   }
   return speeches.length > 0
-    ? { text: speeches.join('. '), priority: hasWarning ? 2 : 1 }
+    ? {
+      text: speeches.join('. '),
+      priority: hasWarning ? SPEECH_PRIORITY_WARNING : SPEECH_PRIORITY_NORMAL
+    }
     : null;
 }
 
@@ -1530,7 +1538,7 @@ async function countdown() {
       speechRequest = getKvkSpeechForCount(count, interval, final);
     } else {
       if (count <= final || count % interval === 0) {
-        speechRequest = { text: speechTextForCount(count), priority: 1 };
+        speechRequest = { text: speechTextForCount(count), priority: SPEECH_PRIORITY_NORMAL };
       }
     }
 
